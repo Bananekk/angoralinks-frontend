@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'https://angoralinks-backend.onrender.com',
+  baseURL: 'https://angoralinks-backend.onrender.com/api',
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json'
