@@ -1,0 +1,266 @@
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { 
+    Link2, ArrowLeft, Mail, Send, MessageCircle, 
+    Instagram, Loader2, CheckCircle, AlertCircle 
+} from 'lucide-react';
+import toast from 'react-hot-toast';
+import api from '../api/axios';
+
+// TUTAJ ZMIEŃ SWOJE DANE
+const CONTACT_INFO = {
+    email: 'kontakt@angoralinks.com',
+    discord: 'https://discord.gg/TWOJ_SERWER',
+    instagram: 'angoralinks'
+};
+
+function Contact() {
+    const [formData, setFormData] = useState({
+        name: '',
+        email: '',
+        subject: '',
+        message: ''
+    });
+    const [sending, setSending] = useState(false);
+    const [sent, setSent] = useState(false);
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setSending(true);
+
+        try {
+            await api.post('/contact', formData);
+            setSent(true);
+            toast.success('Wiadomość została wysłana!');
+            setFormData({ name: '', email: '', subject: '', message: '' });
+        } catch (error) {
+            toast.error(error.response?.data?.error || 'Błąd wysyłania wiadomości');
+        } finally {
+            setSending(false);
+        }
+    };
+
+    return (
+        <div className="min-h-screen bg-slate-900 text-slate-100">
+            {/* Navbar */}
+            <nav className="border-b border-slate-800 bg-slate-900/80 backdrop-blur-sm sticky top-0 z-50">
+                <div className="max-w-4xl mx-auto px-4 py-4">
+                    <div className="flex items-center justify-between">
+                        <Link to="/" className="flex items-center gap-2">
+                            <Link2 className="w-8 h-8 text-primary-500" />
+                            <span className="text-xl font-bold">AngoraLinks</span>
+                        </Link>
+                        <Link 
+                            to="/" 
+                            className="flex items-center gap-2 text-slate-400 hover:text-white transition"
+                        >
+                            <ArrowLeft className="w-4 h-4" />
+                            Powrót
+                        </Link>
+                    </div>
+                </div>
+            </nav>
+
+            {/* Content */}
+            <main className="max-w-4xl mx-auto px-4 py-12">
+                <div className="text-center mb-12">
+                    <h1 className="text-4xl font-bold mb-4">Kontakt</h1>
+                    <p className="text-slate-400 text-lg">
+                        Masz pytania? Chętnie pomożemy! Skontaktuj się z nami.
+                    </p>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-8">
+                    {/* Formularz kontaktowy */}
+                    <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6">
+                        <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
+                            <Mail className="w-5 h-5 text-primary-500" />
+                            Wyślij wiadomość
+                        </h2>
+
+                        {sent ? (
+                            <div className="text-center py-8">
+                                <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
+                                <h3 className="text-xl font-semibold mb-2">Dziękujemy!</h3>
+                                <p className="text-slate-400 mb-4">
+                                    Twoja wiadomość została wysłana. Odpowiemy najszybciej jak to możliwe.
+                                </p>
+                                <button
+                                    onClick={() => setSent(false)}
+                                    className="text-primary-500 hover:text-primary-400 transition"
+                                >
+                                    Wyślij kolejną wiadomość
+                                </button>
+                            </div>
+                        ) : (
+                            <form onSubmit={handleSubmit} className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                                        Imię / Nick
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={formData.name}
+                                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                        className="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-primary-500 focus:outline-none transition"
+                                        placeholder="Jak się nazywasz?"
+                                        required
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                                        Email
+                                    </label>
+                                    <input
+                                        type="email"
+                                        value={formData.email}
+                                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                        className="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-primary-500 focus:outline-none transition"
+                                        placeholder="twoj@email.com"
+                                        required
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                                        Temat
+                                    </label>
+                                    <select
+                                        value={formData.subject}
+                                        onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                                        className="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-3 text-white focus:border-primary-500 focus:outline-none transition"
+                                        required
+                                    >
+                                        <option value="">Wybierz temat</option>
+                                        <option value="Pytanie ogólne">Pytanie ogólne</option>
+                                        <option value="Problem techniczny">Problem techniczny</option>
+                                        <option value="Wypłaty">Wypłaty</option>
+                                        <option value="Konto">Konto</option>
+                                        <option value="Współpraca">Współpraca</option>
+                                        <option value="Inne">Inne</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                                        Wiadomość
+                                    </label>
+                                    <textarea
+                                        value={formData.message}
+                                        onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                                        className="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:border-primary-500 focus:outline-none transition resize-none"
+                                        placeholder="Opisz swoją sprawę..."
+                                        rows={5}
+                                        required
+                                    />
+                                </div>
+
+                                <button
+                                    type="submit"
+                                    disabled={sending}
+                                    className="w-full bg-primary-600 hover:bg-primary-700 disabled:bg-primary-800 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-lg transition flex items-center justify-center gap-2"
+                                >
+                                    {sending ? (
+                                        <>
+                                            <Loader2 className="w-5 h-5 animate-spin" />
+                                            Wysyłanie...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Send className="w-5 h-5" />
+                                            Wyślij wiadomość
+                                        </>
+                                    )}
+                                </button>
+                            </form>
+                        )}
+                    </div>
+
+                    {/* Inne sposoby kontaktu */}
+                    <div className="space-y-6">
+                        {/* Email */}
+                        <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6">
+                            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                                <Mail className="w-5 h-5 text-blue-500" />
+                                Email
+                            </h3>
+                            <p className="text-slate-400 mb-3">
+                                Napisz do nas bezpośrednio na adres email:
+                            </p>
+                            <a 
+                                href={`mailto:${CONTACT_INFO.email}`}
+                                className="inline-flex items-center gap-2 text-primary-400 hover:text-primary-300 transition font-medium"
+                            >
+                                {CONTACT_INFO.email}
+                            </a>
+                        </div>
+
+                        {/* Discord */}
+                        <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6">
+                            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                                <MessageCircle className="w-5 h-5 text-indigo-500" />
+                                Discord
+                            </h3>
+                            <p className="text-slate-400 mb-3">
+                                Dołącz do naszego serwera Discord:
+                            </p>
+                            <a 
+                                href={CONTACT_INFO.discord}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition font-medium"
+                            >
+                                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
+                                </svg>
+                                Dołącz do Discord
+                            </a>
+                        </div>
+
+                        {/* Instagram */}
+                        <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6">
+                            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                                <Instagram className="w-5 h-5 text-pink-500" />
+                                Instagram
+                            </h3>
+                            <p className="text-slate-400 mb-3">
+                                Śledź nas na Instagramie:
+                            </p>
+                            <a 
+                                href={`https://instagram.com/${CONTACT_INFO.instagram}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-4 py-2 rounded-lg transition font-medium"
+                            >
+                                <Instagram className="w-5 h-5" />
+                                @{CONTACT_INFO.instagram}
+                            </a>
+                        </div>
+
+                        {/* FAQ Info */}
+                        <div className="bg-yellow-900/20 border border-yellow-800/50 rounded-2xl p-6">
+                            <h3 className="text-lg font-semibold mb-2 flex items-center gap-2 text-yellow-500">
+                                <AlertCircle className="w-5 h-5" />
+                                Zanim napiszesz
+                            </h3>
+                            <p className="text-slate-400 text-sm">
+                                Sprawdź nasz <Link to="/terms" className="text-primary-400 hover:underline">regulamin</Link>, 
+                                gdzie znajdziesz odpowiedzi na najczęściej zadawane pytania.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </main>
+
+            {/* Footer */}
+            <footer className="border-t border-slate-800 py-6 px-4 mt-12">
+                <div className="max-w-4xl mx-auto text-center text-slate-400 text-sm">
+                    <p>© 2024 AngoraLinks. Wszystkie prawa zastrzeżone.</p>
+                </div>
+            </footer>
+        </div>
+    );
+}
+
+export default Contact;
