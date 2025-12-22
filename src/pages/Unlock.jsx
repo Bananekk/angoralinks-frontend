@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import { Link2, Clock, CheckCircle, ExternalLink, Loader2, AlertCircle, Shield, MousePointer } from 'lucide-react';
+import { Link2, Clock, CheckCircle, ExternalLink, Loader2, AlertCircle, Shield, MousePointer, ShieldOff, RefreshCw } from 'lucide-react';
 import HCaptcha from '@hcaptcha/react-hcaptcha';
 import AdBanner from '../components/AdBanner';
 
@@ -17,15 +17,84 @@ function Unlock() {
     const [unlocking, setUnlocking] = useState(false);
     const [targetUrl, setTargetUrl] = useState(null);
     
+    // AdBlock detection
+    const [adBlockDetected, setAdBlockDetected] = useState(false);
+    const [checkingAdBlock, setCheckingAdBlock] = useState(true);
+    
     // Captcha
     const [captchaToken, setCaptchaToken] = useState(null);
     const [showCaptcha, setShowCaptcha] = useState(false);
     const captchaRef = useRef(null);
 
-    // Twój Site Key z hCaptcha (zamień na swój!)
     const HCAPTCHA_SITE_KEY = 'c6486bc4-4a2e-4c3c-b8e6-720cf3dc324e';
-
     const DIRECT_LINK = 'https://www.effectivegatecpm.com/ywkxbw41h?key=d1f50bdb00b57c1ece2c8c53b6332d4d';
+
+    // Funkcja wykrywania AdBlocka
+    const detectAdBlock = async () => {
+        setCheckingAdBlock(true);
+        
+        try {
+            // Metoda 1: Sprawdź czy skrypt reklamowy się załaduje
+            const testAd = document.createElement('div');
+            testAd.innerHTML = '&nbsp;';
+            testAd.className = 'adsbox ad-banner ad-placeholder textads banner-ads';
+            testAd.style.cssText = 'position: absolute; left: -9999px; top: -9999px; width: 1px; height: 1px;';
+            document.body.appendChild(testAd);
+            
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            const isBlocked = testAd.offsetHeight === 0 || 
+                              testAd.offsetWidth === 0 || 
+                              testAd.clientHeight === 0 ||
+                              window.getComputedStyle(testAd).display === 'none';
+            
+            document.body.removeChild(testAd);
+            
+            if (isBlocked) {
+                setAdBlockDetected(true);
+                setCheckingAdBlock(false);
+                return;
+            }
+            
+            // Metoda 2: Próba pobrania skryptu reklamowego
+            try {
+                const response = await fetch('https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js', {
+                    method: 'HEAD',
+                    mode: 'no-cors',
+                    cache: 'no-cache'
+                });
+                setAdBlockDetected(false);
+            } catch (e) {
+                setAdBlockDetected(true);
+            }
+            
+            // Metoda 3: Sprawdź czy AdsTerra się ładuje
+            try {
+                const adsResponse = await fetch('https://www.profitabledisplaynetwork.com', {
+                    method: 'HEAD',
+                    mode: 'no-cors',
+                    cache: 'no-cache'
+                });
+            } catch (e) {
+                setAdBlockDetected(true);
+            }
+            
+        } catch (e) {
+            setAdBlockDetected(true);
+        }
+        
+        setCheckingAdBlock(false);
+    };
+
+    // Sprawdź AdBlock przy montowaniu
+    useEffect(() => {
+        detectAdBlock();
+    }, []);
+
+    // Funkcja ponownego sprawdzenia (po wyłączeniu AdBlocka)
+    const recheckAdBlock = () => {
+        detectAdBlock();
+    };
 
     useEffect(() => {
         const fetchLink = async () => {
@@ -91,7 +160,6 @@ function Unlock() {
     const handleUnlock = async () => {
         if (!timerDone) return;
         
-        // Sprawdź captcha (jeśli wymagana)
         if (showCaptcha && !captchaToken) {
             setError('Najpierw rozwiąż captcha');
             return;
@@ -119,7 +187,6 @@ function Unlock() {
             setTimeout(() => { window.location.href = data.url; }, 1500);
         } catch (err) {
             setError(err.message);
-            // Reset captcha przy błędzie
             if (captchaRef.current) {
                 captchaRef.current.resetCaptcha();
             }
@@ -128,6 +195,148 @@ function Unlock() {
             setUnlocking(false);
         }
     };
+
+    // Ekran ładowania sprawdzania AdBlocka
+    if (checkingAdBlock) {
+        return (
+            <div style={{ 
+                minHeight: '100vh', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                backgroundColor: '#0f172a',
+                flexDirection: 'column',
+                gap: '16px'
+            }}>
+                <Loader2 className="animate-spin" style={{ width: '48px', height: '48px', color: '#0ea5e9' }} />
+                <p style={{ color: '#94a3b8', fontSize: '16px' }}>Sprawdzanie połączenia...</p>
+            </div>
+        );
+    }
+
+    // Ekran blokady - AdBlock wykryty
+    if (adBlockDetected) {
+        return (
+            <div style={{ 
+                minHeight: '100vh', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                backgroundColor: '#0f172a',
+                padding: '16px'
+            }}>
+                <div style={{ 
+                    maxWidth: '500px', 
+                    width: '100%',
+                    backgroundColor: 'rgba(30, 41, 59, 0.8)',
+                    border: '2px solid #ef4444',
+                    borderRadius: '24px',
+                    padding: '48px 32px',
+                    textAlign: 'center'
+                }}>
+                    {/* Ikona */}
+                    <div style={{
+                        width: '80px',
+                        height: '80px',
+                        borderRadius: '50%',
+                        backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        margin: '0 auto 24px'
+                    }}>
+                        <ShieldOff style={{ width: '40px', height: '40px', color: '#ef4444' }} />
+                    </div>
+
+                    {/* Tytuł */}
+                    <h1 style={{ 
+                        fontSize: '28px', 
+                        fontWeight: 'bold', 
+                        color: '#f8fafc',
+                        marginBottom: '16px'
+                    }}>
+                        AdBlock wykryty
+                    </h1>
+
+                    {/* Opis */}
+                    <p style={{ 
+                        color: '#94a3b8', 
+                        fontSize: '16px',
+                        lineHeight: '1.6',
+                        marginBottom: '32px'
+                    }}>
+                        Aby uzyskać dostęp do tego linku, wyłącz rozszerzenie blokujące reklamy 
+                        (AdBlock, uBlock Origin, itp.) i odśwież stronę.
+                    </p>
+
+                    {/* Instrukcja */}
+                    <div style={{
+                        backgroundColor: 'rgba(15, 23, 42, 0.6)',
+                        borderRadius: '16px',
+                        padding: '24px',
+                        marginBottom: '32px',
+                        textAlign: 'left'
+                    }}>
+                        <h3 style={{ 
+                            color: '#f8fafc', 
+                            fontSize: '16px', 
+                            fontWeight: 'bold',
+                            marginBottom: '16px'
+                        }}>
+                            Jak wyłączyć AdBlock:
+                        </h3>
+                        <ol style={{ 
+                            color: '#94a3b8', 
+                            fontSize: '14px',
+                            lineHeight: '2',
+                            paddingLeft: '20px',
+                            margin: 0
+                        }}>
+                            <li>Kliknij ikonę AdBlocka w pasku przeglądarki</li>
+                            <li>Wybierz "Wstrzymaj" lub "Wyłącz na tej stronie"</li>
+                            <li>Kliknij przycisk poniżej aby sprawdzić ponownie</li>
+                        </ol>
+                    </div>
+
+                    {/* Przycisk ponownego sprawdzenia */}
+                    <button
+                        onClick={recheckAdBlock}
+                        style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '12px',
+                            backgroundColor: '#0ea5e9',
+                            color: '#ffffff',
+                            padding: '16px 32px',
+                            borderRadius: '12px',
+                            fontWeight: 'bold',
+                            fontSize: '16px',
+                            border: 'none',
+                            cursor: 'pointer',
+                            width: '100%',
+                            transition: 'background-color 0.2s'
+                        }}
+                        onMouseOver={(e) => e.target.style.backgroundColor = '#0284c7'}
+                        onMouseOut={(e) => e.target.style.backgroundColor = '#0ea5e9'}
+                    >
+                        <RefreshCw style={{ width: '20px', height: '20px' }} />
+                        Sprawdź ponownie
+                    </button>
+
+                    {/* Info */}
+                    <p style={{ 
+                        color: '#64748b', 
+                        fontSize: '12px',
+                        marginTop: '24px'
+                    }}>
+                        Reklamy pozwalają nam utrzymać serwis i wspierać twórców.
+                        <br />Dziękujemy za zrozumienie! ❤️
+                    </p>
+                </div>
+            </div>
+        );
+    }
 
     if (loading) {
         return (
