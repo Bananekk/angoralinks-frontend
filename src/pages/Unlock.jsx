@@ -30,7 +30,7 @@ function Unlock() {
     useEffect(() => {
         const fetchLink = async () => {
             try {
-                const response = await fetch(`https://angoralinks-backend.onrender.com/l/${shortCode}`);
+                const response = await fetch(`https://angoralinks-backend-production.up.railway.app/l/${shortCode}`);
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.error || 'Link nie istnieje');
                 setLinkData(data);
@@ -101,7 +101,7 @@ function Unlock() {
         setError(null);
 
         try {
-            const response = await fetch(`https://angoralinks-backend.onrender.com/l/${shortCode}/unlock`, {
+            const response = await fetch(`https://angoralinks-backend-production.up.railway.app/l/${shortCode}/unlock`, {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',
