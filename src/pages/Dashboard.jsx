@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Link2, Plus, Copy, ExternalLink, Trash2, DollarSign, MousePointer, LogOut, Loader2, BarChart3, Shield, User, Wallet } from 'lucide-react';
+import { 
+    Link2, Plus, Copy, ExternalLink, Trash2, DollarSign, MousePointer, 
+    LogOut, Loader2, BarChart3, Shield, User, Wallet, ChevronDown, 
+    ChevronUp, TrendingUp, Globe, Info 
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../api/axios';
 
@@ -12,6 +16,11 @@ function Dashboard() {
     const [creating, setCreating] = useState(false);
     const [showModal, setShowModal] = useState(false);
     const [newLink, setNewLink] = useState({ url: '', title: '' });
+    
+    // CPM Rates state
+    const [cpmRates, setCpmRates] = useState(null);
+    const [cpmLoading, setCpmLoading] = useState(true);
+    const [expandedTier, setExpandedTier] = useState(null);
 
     useEffect(() => {
         const userData = localStorage.getItem('user');
@@ -22,6 +31,7 @@ function Dashboard() {
         setUser(JSON.parse(userData));
         fetchLinks();
         fetchUserData();
+        fetchCpmRates();
     }, [navigate]);
 
     const fetchUserData = async () => {
@@ -42,6 +52,17 @@ function Dashboard() {
             toast.error('Błąd pobierania linków');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchCpmRates = async () => {
+        try {
+            const response = await api.get('/cpm/rates');
+            setCpmRates(response.data.data);
+        } catch (error) {
+            console.error('Błąd pobierania stawek CPM:', error);
+        } finally {
+            setCpmLoading(false);
         }
     };
 
@@ -87,6 +108,57 @@ function Dashboard() {
         toast.success('Wylogowano');
     };
 
+    // Helper: flaga kraju
+    const getFlagEmoji = (countryCode) => {
+        if (!countryCode || countryCode === 'XX') return '🌍';
+        const codePoints = countryCode
+            .toUpperCase()
+            .split('')
+            .map(char => 127397 + char.charCodeAt());
+        return String.fromCodePoint(...codePoints);
+    };
+
+    // Helper: średnia stawka
+    const getAverageRate = (tierRates) => {
+        if (!tierRates || !tierRates.length) return '0.00';
+        const sum = tierRates.reduce((acc, r) => acc + r.netCpm, 0);
+        return (sum / tierRates.length).toFixed(2);
+    };
+
+    // Helper: max stawka
+    const getMaxRate = (tierRates) => {
+        if (!tierRates || !tierRates.length) return '0.00';
+        return Math.max(...tierRates.map(r => r.netCpm)).toFixed(2);
+    };
+
+    // Tier config
+    const tierConfig = {
+        tier1: {
+            name: 'Tier 1',
+            label: 'Premium Countries',
+            emoji: '🥇',
+            textColor: '#eab308',
+            bgColor: 'rgba(234, 179, 8, 0.1)',
+            borderColor: 'rgba(234, 179, 8, 0.3)'
+        },
+        tier2: {
+            name: 'Tier 2',
+            label: 'Good Countries',
+            emoji: '🥈',
+            textColor: '#94a3b8',
+            bgColor: 'rgba(148, 163, 184, 0.1)',
+            borderColor: 'rgba(148, 163, 184, 0.3)'
+        },
+        tier3: {
+            name: 'Tier 3',
+            label: 'Other Countries',
+            emoji: '🥉',
+            textColor: '#f97316',
+            bgColor: 'rgba(249, 115, 22, 0.1)',
+            borderColor: 'rgba(249, 115, 22, 0.3)'
+        }
+    };
+
     if (loading) {
         return (
             <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#0f172a' }}>
@@ -126,7 +198,6 @@ function Dashboard() {
                             >
                                 <BarChart3 style={{ width: '20px', height: '20px' }} />
                             </Link>
-                            {/* NOWY PRZYCISK WYPŁAT */}
                             <Link
                                 to="/payouts"
                                 style={{ padding: '8px', color: '#22c55e', borderRadius: '8px', display: 'flex', alignItems: 'center' }}
@@ -192,6 +263,193 @@ function Dashboard() {
                                     ${links.reduce((acc, l) => acc + (parseFloat(l.totalEarned) || 0), 0).toFixed(4)}
                                 </p>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* CPM Rates Section */}
+                <div style={{ 
+                    backgroundColor: 'rgba(30, 41, 59, 0.5)', 
+                    border: '1px solid #334155', 
+                    borderRadius: '12px', 
+                    padding: '24px',
+                    marginBottom: '32px'
+                }}>
+                    {/* CPM Header */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <div style={{ 
+                                width: '40px', 
+                                height: '40px', 
+                                background: 'linear-gradient(135deg, #22c55e, #10b981)', 
+                                borderRadius: '10px', 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                justifyContent: 'center' 
+                            }}>
+                                <Globe style={{ width: '20px', height: '20px', color: '#ffffff' }} />
+                            </div>
+                            <div>
+                                <h3 style={{ fontSize: '18px', fontWeight: '600', margin: 0 }}>CPM Rates</h3>
+                                <p style={{ fontSize: '14px', color: '#94a3b8', margin: 0 }}>Your earnings per 1000 views</p>
+                            </div>
+                        </div>
+                        {cpmRates && (
+                            <div style={{ 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                gap: '8px', 
+                                padding: '6px 12px', 
+                                backgroundColor: 'rgba(71, 85, 105, 0.5)', 
+                                borderRadius: '20px' 
+                            }}>
+                                <Info style={{ width: '14px', height: '14px', color: '#94a3b8' }} />
+                                <span style={{ fontSize: '13px', color: '#cbd5e1' }}>
+                                    {cpmRates.commissionPercent} platform fee
+                                </span>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* CPM Content */}
+                    {cpmLoading ? (
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px' }}>
+                            <Loader2 className="animate-spin" style={{ width: '24px', height: '24px', color: '#0ea5e9' }} />
+                        </div>
+                    ) : cpmRates ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            {Object.entries(cpmRates.tiers).map(([tierKey, tierRates]) => {
+                                const config = tierConfig[tierKey];
+                                const isExpanded = expandedTier === tierKey;
+
+                                return (
+                                    <div 
+                                        key={tierKey}
+                                        style={{ 
+                                            border: `1px solid ${config.borderColor}`,
+                                            borderRadius: '12px',
+                                            overflow: 'hidden',
+                                            backgroundColor: config.bgColor
+                                        }}
+                                    >
+                                        {/* Tier Header */}
+                                        <button
+                                            onClick={() => setExpandedTier(isExpanded ? null : tierKey)}
+                                            style={{
+                                                width: '100%',
+                                                padding: '16px 20px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between',
+                                                background: 'transparent',
+                                                border: 'none',
+                                                cursor: 'pointer',
+                                                color: 'inherit'
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                                <span style={{ fontSize: '28px' }}>{config.emoji}</span>
+                                                <div style={{ textAlign: 'left' }}>
+                                                    <h4 style={{ 
+                                                        fontSize: '16px', 
+                                                        fontWeight: '600', 
+                                                        color: config.textColor,
+                                                        margin: 0
+                                                    }}>
+                                                        {config.name}
+                                                    </h4>
+                                                    <p style={{ fontSize: '13px', color: '#94a3b8', margin: 0 }}>
+                                                        {config.label} • {tierRates.length} countries
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                                                <div style={{ textAlign: 'right' }}>
+                                                    <p style={{ fontSize: '18px', fontWeight: 'bold', color: '#ffffff', margin: 0 }}>
+                                                        ${getAverageRate(tierRates)} - ${getMaxRate(tierRates)}
+                                                    </p>
+                                                    <p style={{ fontSize: '12px', color: '#94a3b8', margin: 0 }}>CPM Range</p>
+                                                </div>
+                                                {isExpanded ? (
+                                                    <ChevronUp style={{ width: '20px', height: '20px', color: '#94a3b8' }} />
+                                                ) : (
+                                                    <ChevronDown style={{ width: '20px', height: '20px', color: '#94a3b8' }} />
+                                                )}
+                                            </div>
+                                        </button>
+
+                                        {/* Expanded Countries List */}
+                                        {isExpanded && (
+                                            <div style={{ 
+                                                borderTop: '1px solid rgba(71, 85, 105, 0.3)',
+                                                padding: '16px',
+                                                backgroundColor: 'rgba(15, 23, 42, 0.3)'
+                                            }}>
+                                                <div style={{ 
+                                                    display: 'grid', 
+                                                    gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
+                                                    gap: '12px'
+                                                }}>
+                                                    {tierRates.map((rate) => (
+                                                        <div 
+                                                            key={rate.countryCode}
+                                                            style={{
+                                                                backgroundColor: 'rgba(30, 41, 59, 0.8)',
+                                                                borderRadius: '10px',
+                                                                padding: '12px',
+                                                                transition: 'background-color 0.2s'
+                                                            }}
+                                                        >
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                                                                <span style={{ fontSize: '20px' }}>
+                                                                    {getFlagEmoji(rate.countryCode)}
+                                                                </span>
+                                                                <span style={{ fontSize: '14px', fontWeight: '600', color: '#ffffff' }}>
+                                                                    {rate.countryCode}
+                                                                </span>
+                                                            </div>
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+                                                                    <span style={{ color: '#64748b' }}>CPM:</span>
+                                                                    <span style={{ color: config.textColor, fontWeight: '500' }}>
+                                                                        ${rate.netCpm.toFixed(2)}
+                                                                    </span>
+                                                                </div>
+                                                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+                                                                    <span style={{ color: '#64748b' }}>Per click:</span>
+                                                                    <span style={{ color: '#22c55e', fontWeight: '600' }}>
+                                                                        ${rate.earningPerClick.toFixed(4)}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    ) : (
+                        <p style={{ color: '#94a3b8', textAlign: 'center' }}>Unable to load CPM rates</p>
+                    )}
+
+                    {/* Pro Tip */}
+                    <div style={{ 
+                        marginTop: '20px',
+                        padding: '16px',
+                        background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(147, 51, 234, 0.1))',
+                        borderRadius: '10px',
+                        border: '1px solid rgba(59, 130, 246, 0.2)'
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                            <TrendingUp style={{ width: '20px', height: '20px', color: '#3b82f6', flexShrink: 0, marginTop: '2px' }} />
+                            <p style={{ fontSize: '14px', color: '#cbd5e1', margin: 0, lineHeight: '1.5' }}>
+                                <span style={{ fontWeight: '600', color: '#ffffff' }}>💡 Pro Tip:</span> Share your links with audiences from 
+                                <span style={{ color: '#eab308', fontWeight: '600' }}> Tier 1 countries </span> 
+                                (US, UK, Germany, Canada) to maximize your earnings!
+                            </p>
                         </div>
                     </div>
                 </div>

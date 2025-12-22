@@ -9,8 +9,8 @@ import api from '../api/axios';
 
 // TUTAJ ZMIEŃ SWOJE DANE
 const CONTACT_INFO = {
-    email: 'kontakt@angoralinks.com',
-    discord: 'https://discord.gg/TWOJ_SERWER',
+    email: 'angoralinx@gmail.com',
+    discord: 'https://discord.gg/hd32mthG2R',
     instagram: 'angoralinks'
 };
 
