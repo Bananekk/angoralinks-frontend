@@ -13,6 +13,7 @@ import Verify from './pages/Verify';
 import Payouts from './pages/Payouts';
 import Terms from './pages/Terms';
 import Contact from './pages/Contact';
+import CpmRates from './pages/CpmRates';
 
 function App() {
     return (
@@ -40,6 +41,7 @@ function App() {
                 <Route path="/payouts" element={<Payouts />} />
                 <Route path="/terms" element={<Terms />} />
                 <Route path="/contact" element={<Contact />} />
+		<Route path="/cpm-rates" element={<CpmRates />} />
             </Routes>
         </BrowserRouter>
     );
