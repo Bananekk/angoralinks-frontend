@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { 
     Link2, Plus, Copy, ExternalLink, Trash2, DollarSign, MousePointer, 
     LogOut, Loader2, BarChart3, Shield, User, Wallet, ChevronDown, 
-    ChevronUp, TrendingUp, Globe, Info 
+    ChevronUp, TrendingUp, Globe, Info, AlertTriangle
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../api/axios';
@@ -15,6 +15,7 @@ function Dashboard() {
     const [loading, setLoading] = useState(true);
     const [creating, setCreating] = useState(false);
     const [showModal, setShowModal] = useState(false);
+    const [showLogoutModal, setShowLogoutModal] = useState(false); // NOWY STATE
     const [newLink, setNewLink] = useState({ url: '', title: '' });
     
     // CPM Rates state
@@ -101,9 +102,16 @@ function Dashboard() {
         toast.success('Skopiowano do schowka!');
     };
 
-    const handleLogout = () => {
+    // ZMODYFIKOWANA FUNKCJA - teraz otwiera modal
+    const handleLogoutClick = () => {
+        setShowLogoutModal(true);
+    };
+
+    // NOWA FUNKCJA - faktyczne wylogowanie
+    const handleLogoutConfirm = () => {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
+        setShowLogoutModal(false);
         navigate('/');
         toast.success('Wylogowano');
     };
@@ -212,8 +220,9 @@ function Dashboard() {
                             >
                                 <User style={{ width: '20px', height: '20px' }} />
                             </Link>
+                            {/* ZMIENIONY PRZYCISK - teraz wywołuje handleLogoutClick */}
                             <button
-                                onClick={handleLogout}
+                                onClick={handleLogoutClick}
                                 style={{ padding: '8px', color: '#94a3b8', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                                 title="Wyloguj"
                             >
@@ -658,6 +667,120 @@ function Dashboard() {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* ============================================= */}
+            {/* NOWY MODAL - Potwierdzenie wylogowania */}
+            {/* ============================================= */}
+            {showLogoutModal && (
+                <div 
+                    style={{
+                        position: 'fixed',
+                        inset: 0,
+                        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                        backdropFilter: 'blur(4px)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 50,
+                        padding: '16px'
+                    }}
+                    onClick={(e) => {
+                        // Zamknij modal po kliknięciu w tło
+                        if (e.target === e.currentTarget) {
+                            setShowLogoutModal(false);
+                        }
+                    }}
+                >
+                    <div style={{
+                        backgroundColor: '#1e293b',
+                        border: '1px solid #334155',
+                        borderRadius: '16px',
+                        padding: '24px',
+                        width: '100%',
+                        maxWidth: '400px',
+                        textAlign: 'center'
+                    }}>
+                        {/* Ikona ostrzeżenia */}
+                        <div style={{
+                            width: '64px',
+                            height: '64px',
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            borderRadius: '50%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            margin: '0 auto 20px'
+                        }}>
+                            <LogOut style={{ width: '32px', height: '32px', color: '#ef4444' }} />
+                        </div>
+
+                        {/* Tytuł */}
+                        <h2 style={{ 
+                            fontSize: '20px', 
+                            fontWeight: '600', 
+                            marginBottom: '12px',
+                            color: '#f8fafc'
+                        }}>
+                            Wylogowanie
+                        </h2>
+
+                        {/* Treść */}
+                        <p style={{ 
+                            fontSize: '14px', 
+                            color: '#94a3b8', 
+                            marginBottom: '24px',
+                            lineHeight: '1.5'
+                        }}>
+                            Czy na pewno chcesz się wylogować z konta?
+                        </p>
+
+                        {/* Przyciski */}
+                        <div style={{ display: 'flex', gap: '12px' }}>
+                            <button
+                                onClick={() => setShowLogoutModal(false)}
+                                style={{
+                                    flex: 1,
+                                    backgroundColor: '#475569',
+                                    color: '#ffffff',
+                                    padding: '12px',
+                                    borderRadius: '8px',
+                                    border: 'none',
+                                    fontWeight: '500',
+                                    cursor: 'pointer',
+                                    transition: 'background-color 0.2s'
+                                }}
+                                onMouseEnter={(e) => e.target.style.backgroundColor = '#64748b'}
+                                onMouseLeave={(e) => e.target.style.backgroundColor = '#475569'}
+                            >
+                                Anuluj
+                            </button>
+                            <button
+                                onClick={handleLogoutConfirm}
+                                style={{
+                                    flex: 1,
+                                    backgroundColor: '#ef4444',
+                                    color: '#ffffff',
+                                    padding: '12px',
+                                    borderRadius: '8px',
+                                    border: 'none',
+                                    fontWeight: '500',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '8px',
+                                    transition: 'background-color 0.2s'
+                                }}
+                                onMouseEnter={(e) => e.target.style.backgroundColor = '#dc2626'}
+                                onMouseLeave={(e) => e.target.style.backgroundColor = '#ef4444'}
+                            >
+                                <LogOut style={{ width: '16px', height: '16px' }} />
+                                Wyloguj
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
