@@ -1,4 +1,4 @@
-// Home.jsx - RESPONSYWNY z Hamburger Menu
+// Home.jsx - NAPRAWIONY
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
@@ -9,7 +9,6 @@ import {
 } from 'lucide-react';
 import api from '../api/axios';
 
-// 🔥 Hook do wykrywania rozmiaru ekranu
 const useWindowSize = () => {
     const [windowSize, setWindowSize] = useState({
         width: typeof window !== 'undefined' ? window.innerWidth : 1024,
@@ -62,14 +61,12 @@ function Home() {
         setIsLoading(false);
     }, []);
 
-    // Zamknij menu przy zmianie rozmiaru
     useEffect(() => {
         if (!isMobile) {
             setMobileMenuOpen(false);
         }
     }, [isMobile]);
 
-    // Blokuj scroll gdy menu jest otwarte
     useEffect(() => {
         if (mobileMenuOpen) {
             document.body.style.overflow = 'hidden';
@@ -107,7 +104,6 @@ function Home() {
         return num.toString();
     };
 
-    // Style dla mobile menu
     const mobileMenuStyles = {
         overlay: {
             display: mobileMenuOpen ? 'block' : 'none',
@@ -205,7 +201,6 @@ function Home() {
                         alignItems: 'center',
                         height: isMobile ? '56px' : '64px'
                     }}>
-                        {/* Logo */}
                         <Link to="/" style={{ 
                             display: 'flex', 
                             alignItems: 'center', 
@@ -218,7 +213,6 @@ function Home() {
                             </span>
                         </Link>
                         
-                        {/* Desktop Navigation */}
                         {!isMobile && (
                             <>
                                 {user ? (
@@ -286,7 +280,6 @@ function Home() {
                             </>
                         )}
 
-                        {/* Mobile: Hamburger Button */}
                         {isMobile && (
                             <button 
                                 onClick={() => setMobileMenuOpen(true)}
@@ -337,7 +330,6 @@ function Home() {
 
                 {user ? (
                     <>
-                        {/* User Balance Card */}
                         <div style={{ 
                             padding: '16px', 
                             borderBottom: '1px solid #334155',
@@ -351,7 +343,6 @@ function Home() {
                             </p>
                         </div>
 
-                        {/* Menu Items for logged user */}
                         <div style={{ flex: 1, overflow: 'auto' }}>
                             <Link 
                                 to="/dashboard" 
@@ -395,7 +386,6 @@ function Home() {
                             </Link>
                         </div>
 
-                        {/* Logout */}
                         <div style={{ padding: '16px', borderTop: '1px solid #334155' }}>
                             <button
                                 onClick={handleLogout}
@@ -422,7 +412,6 @@ function Home() {
                     </>
                 ) : (
                     <>
-                        {/* Menu Items for guest */}
                         <div style={{ flex: 1, padding: '16px' }}>
                             <Link 
                                 to="/cpm-rates" 
@@ -467,7 +456,6 @@ function Home() {
                             </Link>
                         </div>
 
-                        {/* Auth Buttons */}
                         <div style={{ padding: '16px', borderTop: '1px solid #334155' }}>
                             <Link
                                 to="/register"
@@ -481,7 +469,8 @@ function Home() {
                                     borderRadius: '8px',
                                     fontWeight: '500',
                                     marginBottom: '12px',
-                                    textDecoration: 'none'
+                                    textDecoration: 'none',
+                                    boxSizing: 'border-box'
                                 }}
                                 onClick={() => setMobileMenuOpen(false)}
                             >
@@ -499,7 +488,8 @@ function Home() {
                                     borderRadius: '8px',
                                     fontWeight: '500',
                                     border: '1px solid #475569',
-                                    textDecoration: 'none'
+                                    textDecoration: 'none',
+                                    boxSizing: 'border-box'
                                 }}
                                 onClick={() => setMobileMenuOpen(false)}
                             >
@@ -515,10 +505,10 @@ function Home() {
                 <section style={{ 
                     paddingTop: isMobile ? '72px' : '96px', 
                     paddingBottom: isMobile ? '24px' : '64px',
-                    padding: isMobile ? '72px 12px 24px' : '96px 16px 64px'
+                    paddingLeft: isMobile ? '12px' : '16px',
+                    paddingRight: isMobile ? '12px' : '16px'
                 }}>
                     <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
-                        {/* Welcome Card */}
                         <div style={{
                             background: 'linear-gradient(135deg, rgba(14, 165, 233, 0.2) 0%, rgba(168, 85, 247, 0.2) 100%)',
                             border: '1px solid rgba(14, 165, 233, 0.3)',
@@ -593,7 +583,6 @@ function Home() {
                             </div>
                         </div>
 
-                        {/* Quick Actions Grid */}
                         <div style={{
                             display: 'grid',
                             gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)',
@@ -613,8 +602,7 @@ function Home() {
                                         border: '1px solid #334155',
                                         padding: isMobile ? '16px' : '24px',
                                         borderRadius: '12px',
-                                        textDecoration: 'none',
-                                        transition: 'all 0.2s'
+                                        textDecoration: 'none'
                                     }}
                                 >
                                     <div style={{
@@ -641,29 +629,24 @@ function Home() {
                                     }}>
                                         {item.title}
                                     </h3>
-                                    <p style={{ 
-                                        color: '#94a3b8', 
-                                        fontSize: isMobile ? '12px' : '14px',
-                                        margin: 0,
-                                        display: isMobile ? 'none' : 'block'
-                                    }}>
-                                        {item.subtitle}
-                                    </p>
+                                    {!isMobile && (
+                                        <p style={{ color: '#94a3b8', fontSize: '14px', margin: 0 }}>
+                                            {item.subtitle}
+                                        </p>
+                                    )}
                                 </Link>
                             ))}
                         </div>
                     </div>
                 </section>
             ) : (
-                /* Hero Section - dla niezalogowanych */
                 <section style={{ 
                     paddingTop: isMobile ? '80px' : '128px', 
                     paddingBottom: isMobile ? '40px' : '80px',
-                    paddingLeft: isMobile ? '16px' : '16px',
-                    paddingRight: isMobile ? '16px' : '16px'
+                    paddingLeft: '16px',
+                    paddingRight: '16px'
                 }}>
                     <div style={{ maxWidth: '1280px', margin: '0 auto', textAlign: 'center' }}>
-                        {/* Badge */}
                         <div style={{
                             display: 'inline-flex',
                             alignItems: 'center',
@@ -680,7 +663,6 @@ function Home() {
                             </span>
                         </div>
 
-                        {/* Heading */}
                         <h1 style={{ 
                             fontSize: isMobile ? '36px' : '72px', 
                             fontWeight: 'bold', 
@@ -692,11 +674,9 @@ function Home() {
                             <span style={{ color: '#0ea5e9' }}>linkach</span>
                         </h1>
 
-                        {/* Subtitle */}
                         <p style={{ 
                             fontSize: isMobile ? '16px' : '20px', 
                             color: '#94a3b8', 
-                            marginBottom: '32px',
                             maxWidth: '640px',
                             margin: '0 auto 32px',
                             lineHeight: 1.6
@@ -705,7 +685,6 @@ function Home() {
                             Dołącz do tysięcy użytkowników, którzy już zarabiają z AngoraLinks.
                         </p>
 
-                        {/* CTA Buttons */}
                         <div style={{
                             display: 'flex',
                             flexDirection: isMobile ? 'column' : 'row',
@@ -740,7 +719,8 @@ function Home() {
                                     fontWeight: '600',
                                     fontSize: isMobile ? '16px' : '18px',
                                     color: 'white',
-                                    textDecoration: 'none'
+                                    textDecoration: 'none',
+                                    textAlign: 'center'
                                 }}
                             >
                                 Mam już konto
@@ -769,10 +749,8 @@ function Home() {
                         <p style={{ 
                             color: '#94a3b8', 
                             textAlign: 'center', 
-                            marginBottom: isMobile ? '32px' : '48px',
                             maxWidth: '640px',
-                            margin: '0 auto',
-                            marginBottom: isMobile ? '32px' : '48px'
+                            margin: `0 auto ${isMobile ? '32px' : '48px'}`
                         }}>
                             Oferujemy najlepsze warunki dla twórców treści i marketerów
                         </p>
