@@ -1,3 +1,4 @@
+// Login.jsx - RESPONSYWNY
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Link2, Mail, Lock, Loader2 } from 'lucide-react';
@@ -5,117 +6,102 @@ import toast from 'react-hot-toast';
 import api from '../api/axios';
 
 function Login() {
-  const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    email: '',
-    password: ''
-  });
+    const navigate = useNavigate();
+    const [loading, setLoading] = useState(false);
+    const [formData, setFormData] = useState({ email: '', password: '' });
 
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
-  };
+    const handleChange = (e) => {
+        setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setLoading(true);
 
-    try {
-      const response = await api.post('/auth/login', formData);
-      
-      localStorage.setItem('token', response.data.token);
-      localStorage.setItem('user', JSON.stringify(response.data.user));
-      
-      toast.success('Zalogowano pomyślnie!');
-      navigate('/dashboard');
-    } catch (error) {
-      toast.error(error.response?.data?.error || 'Błąd logowania');
-    } finally {
-      setLoading(false);
-    }
-  };
+        try {
+            const response = await api.post('/auth/login', formData);
+            localStorage.setItem('token', response.data.token);
+            localStorage.setItem('user', JSON.stringify(response.data.user));
+            toast.success('Zalogowano pomyślnie!');
+            navigate('/dashboard');
+        } catch (error) {
+            toast.error(error.response?.data?.error || 'Błąd logowania');
+        } finally {
+            setLoading(false);
+        }
+    };
 
-  return (
-    <div className="min-h-screen flex items-center justify-center px-4">
-      <div className="w-full max-w-md">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <Link to="/" className="inline-flex items-center gap-2">
-            <Link2 className="w-10 h-10 text-primary-500" />
-            <span className="text-2xl font-bold">AngoraLinks</span>
-          </Link>
-        </div>
+    const inputStyle = {
+        width: '100%',
+        backgroundColor: '#0f172a',
+        border: '1px solid #475569',
+        borderRadius: '8px',
+        padding: '14px 14px 14px 44px',
+        color: '#f8fafc',
+        fontSize: '16px',
+        boxSizing: 'border-box'
+    };
 
-        {/* Form Card */}
-        <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-8">
-          <h1 className="text-2xl font-bold text-center mb-6">Zaloguj się</h1>
-          
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
-                Email
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  className="w-full bg-slate-900 border border-slate-600 rounded-lg py-3 pl-10 pr-4 focus:outline-none focus:border-primary-500 transition"
-                  placeholder="twoj@email.pl"
-                  required
-                />
-              </div>
+    return (
+        <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#0f172a', color: '#f8fafc', padding: '16px' }}>
+            <div style={{ width: '100%', maxWidth: '400px' }}>
+                {/* Logo */}
+                <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+                    <Link to="/" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', textDecoration: 'none', color: '#f8fafc' }}>
+                        <Link2 style={{ width: '40px', height: '40px', color: '#0ea5e9' }} />
+                        <span style={{ fontSize: '24px', fontWeight: 'bold' }}>AngoraLinks</span>
+                    </Link>
+                </div>
+
+                {/* Form Card */}
+                <div style={{ backgroundColor: 'rgba(30, 41, 59, 0.5)', border: '1px solid #334155', borderRadius: '16px', padding: '32px 24px' }}>
+                    <h1 style={{ fontSize: '24px', fontWeight: 'bold', textAlign: 'center', marginBottom: '24px' }}>Zaloguj się</h1>
+                    
+                    <form onSubmit={handleSubmit}>
+                        <div style={{ marginBottom: '16px' }}>
+                            <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#cbd5e1', marginBottom: '8px' }}>Email</label>
+                            <div style={{ position: 'relative' }}>
+                                <Mail style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', width: '20px', height: '20px', color: '#64748b' }} />
+                                <input type="email" name="email" value={formData.email} onChange={handleChange} style={inputStyle} placeholder="twoj@email.pl" required />
+                            </div>
+                        </div>
+
+                        <div style={{ marginBottom: '24px' }}>
+                            <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#cbd5e1', marginBottom: '8px' }}>Hasło</label>
+                            <div style={{ position: 'relative' }}>
+                                <Lock style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', width: '20px', height: '20px', color: '#64748b' }} />
+                                <input type="password" name="password" value={formData.password} onChange={handleChange} style={inputStyle} placeholder="••••••••" required />
+                            </div>
+                        </div>
+
+                        <button type="submit" disabled={loading} style={{
+                            width: '100%',
+                            backgroundColor: '#0ea5e9',
+                            color: '#ffffff',
+                            padding: '14px',
+                            borderRadius: '8px',
+                            border: 'none',
+                            fontWeight: 'bold',
+                            fontSize: '16px',
+                            cursor: loading ? 'not-allowed' : 'pointer',
+                            opacity: loading ? 0.7 : 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px',
+                            minHeight: '48px'
+                        }}>
+                            {loading ? (<><Loader2 className="animate-spin" style={{ width: '20px', height: '20px' }} /> Logowanie...</>) : 'Zaloguj się'}
+                        </button>
+                    </form>
+
+                    <p style={{ textAlign: 'center', color: '#94a3b8', marginTop: '24px' }}>
+                        Nie masz konta? <Link to="/register" style={{ color: '#0ea5e9', textDecoration: 'none' }}>Zarejestruj się</Link>
+                    </p>
+                </div>
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
-                Hasło
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                <input
-                  type="password"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  className="w-full bg-slate-900 border border-slate-600 rounded-lg py-3 pl-10 pr-4 focus:outline-none focus:border-primary-500 transition"
-                  placeholder="••••••••"
-                  required
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-primary-600 hover:bg-primary-700 disabled:bg-primary-800 disabled:cursor-not-allowed py-3 rounded-lg font-semibold transition flex items-center justify-center gap-2"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  Logowanie...
-                </>
-              ) : (
-                'Zaloguj się'
-              )}
-            </button>
-          </form>
-
-          <p className="text-center text-slate-400 mt-6">
-            Nie masz konta?{' '}
-            <Link to="/register" className="text-primary-500 hover:text-primary-400">
-              Zarejestruj się
-            </Link>
-          </p>
         </div>
-      </div>
-    </div>
-  );
+    );
 }
 
 export default Login;

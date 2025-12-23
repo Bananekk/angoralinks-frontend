@@ -1,10 +1,11 @@
+// Admin.jsx - RESPONSYWNY
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
     Shield, Users, Link2, BarChart3, DollarSign, MousePointer,
     ArrowLeft, Loader2, Trash2, UserX, UserCheck, Crown,
     TrendingUp, Calendar, Wallet, CheckCircle, XCircle, Clock, AlertCircle,
-    Mail, MessageSquare, Eye, EyeOff
+    Mail, MessageSquare, Eye, EyeOff, Menu, X, LogOut, Globe, User
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../api/axios';
@@ -19,6 +20,8 @@ function Admin() {
     const [payouts, setPayouts] = useState([]);
     const [messages, setMessages] = useState([]);
     const [unreadCount, setUnreadCount] = useState(0);
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [currentUser, setCurrentUser] = useState(null);
 
     useEffect(() => {
         const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -27,8 +30,26 @@ function Admin() {
             toast.error('Brak uprawnień administratora');
             return;
         }
+        setCurrentUser(user);
         fetchData();
     }, [navigate]);
+
+    // Close menu on resize
+    useEffect(() => {
+        const handleResize = () => {
+            if (window.innerWidth >= 768) {
+                setMobileMenuOpen(false);
+            }
+        };
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+    // Lock scroll when menu open
+    useEffect(() => {
+        document.body.style.overflow = mobileMenuOpen ? 'hidden' : 'unset';
+        return () => { document.body.style.overflow = 'unset'; };
+    }, [mobileMenuOpen]);
 
     const fetchData = async () => {
         try {
@@ -121,7 +142,6 @@ function Admin() {
         }
     };
 
-    // Funkcje dla wiadomości
     const markAsRead = async (messageId) => {
         try {
             await api.put(`/admin/messages/${messageId}/read`, { sendNotification: true });
@@ -129,7 +149,7 @@ function Admin() {
                 m.id === messageId ? { ...m, isRead: true } : m
             ));
             setUnreadCount(prev => Math.max(0, prev - 1));
-            toast.success('Oznaczono jako przeczytane - użytkownik otrzymał powiadomienie');
+            toast.success('Oznaczono jako przeczytane');
         } catch (error) {
             toast.error('Błąd oznaczania wiadomości');
         }
@@ -151,6 +171,13 @@ function Admin() {
         }
     };
 
+    const handleLogout = () => {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        navigate('/');
+        toast.success('Wylogowano');
+    };
+
     const getPayoutStatusBadge = (status) => {
         const styles = {
             PENDING: { bg: 'bg-yellow-900/50', color: 'text-yellow-400', icon: Clock, text: 'Oczekuje' },
@@ -163,7 +190,7 @@ function Admin() {
         return (
             <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs ${s.bg} ${s.color}`}>
                 <Icon className="w-3 h-3" />
-                {s.text}
+                <span className="hidden sm:inline">{s.text}</span>
             </span>
         );
     };
@@ -175,7 +202,7 @@ function Admin() {
             'btc': 'Bitcoin',
             'BITCOIN': 'Bitcoin',
             'bitcoin': 'Bitcoin',
-            'usdt_trc20': 'USDT (TRC20)',
+            'usdt_trc20': 'USDT',
             'ltc': 'Litecoin'
         };
         return methods[method] || method;
@@ -191,54 +218,114 @@ function Admin() {
     if (loading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-slate-900">
-                <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
+                <Loader2 className="w-8 h-8 animate-spin text-cyan-500" />
             </div>
         );
     }
 
     const maxVisits = Math.max(...(stats?.dailyStats?.map(d => d.visits) || [1]));
 
+    const tabs = [
+        { id: 'stats', label: 'Statystyki', icon: BarChart3 },
+        { id: 'users', label: 'Użytkownicy', icon: Users },
+        { id: 'links', label: 'Linki', icon: Link2 },
+        { id: 'payouts', label: 'Wypłaty', icon: Wallet, badge: payoutStats.pending },
+        { id: 'messages', label: 'Wiadomości', icon: MessageSquare, badge: unreadCount }
+    ];
+
     return (
-        <div className="min-h-screen bg-slate-900">
+        <div className="min-h-screen bg-slate-900 text-slate-100">
             {/* Header */}
-            <header className="border-b border-slate-800 bg-slate-900/80 backdrop-blur-sm sticky top-0 z-50">
-                <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <Link to="/dashboard" className="p-2 hover:bg-slate-800 rounded-lg transition">
+            <header className="border-b border-slate-800 bg-slate-900/95 backdrop-blur-sm sticky top-0 z-50">
+                <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4 flex items-center justify-between">
+                    <div className="flex items-center gap-2 sm:gap-4">
+                        <Link to="/dashboard" className="p-2 hover:bg-slate-800 rounded-lg transition min-w-[44px] min-h-[44px] flex items-center justify-center">
                             <ArrowLeft className="w-5 h-5" />
                         </Link>
                         <div className="flex items-center gap-2">
-                            <Shield className="w-6 h-6 text-red-500" />
-                            <span className="font-bold text-xl">Panel Admina</span>
+                            <Shield className="w-5 sm:w-6 h-5 sm:h-6 text-red-500" />
+                            <span className="font-bold text-lg sm:text-xl">Admin</span>
                         </div>
                     </div>
+
+                    {/* Desktop nav links */}
+                    <div className="hidden md:flex items-center gap-4">
+                        <Link to="/dashboard" className="p-2 text-slate-400 hover:text-white" title="Dashboard">
+                            <Link2 className="w-5 h-5" />
+                        </Link>
+                        <Link to="/cpm-rates" className="p-2 text-green-500" title="CPM">
+                            <Globe className="w-5 h-5" />
+                        </Link>
+                        <button onClick={handleLogout} className="p-2 text-slate-400 hover:text-white" title="Wyloguj">
+                            <LogOut className="w-5 h-5" />
+                        </button>
+                    </div>
+
+                    {/* Mobile hamburger */}
+                    <button 
+                        onClick={() => setMobileMenuOpen(true)}
+                        className="md:hidden p-2 text-slate-400 min-w-[44px] min-h-[44px] flex items-center justify-center"
+                    >
+                        <Menu className="w-6 h-6" />
+                    </button>
                 </div>
             </header>
 
-            {/* Tabs */}
-            <div className="border-b border-slate-800">
-                <div className="max-w-7xl mx-auto px-4">
-                    <div className="flex gap-4 overflow-x-auto">
-                        {[
-                            { id: 'stats', label: 'Statystyki', icon: BarChart3 },
-                            { id: 'users', label: 'Użytkownicy', icon: Users },
-                            { id: 'links', label: 'Linki', icon: Link2 },
-                            { id: 'payouts', label: 'Wypłaty', icon: Wallet, badge: payoutStats.pending },
-                            { id: 'messages', label: 'Wiadomości', icon: MessageSquare, badge: unreadCount }
-                        ].map(tab => (
+            {/* Mobile Menu Overlay */}
+            {mobileMenuOpen && (
+                <div className="fixed inset-0 bg-black/50 z-[100]" onClick={() => setMobileMenuOpen(false)} />
+            )}
+
+            {/* Mobile Menu Drawer */}
+            <div className={`fixed top-0 right-0 bottom-0 w-[280px] max-w-[85vw] bg-slate-800 z-[101] transform transition-transform duration-300 flex flex-col ${mobileMenuOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+                <div className="flex justify-between items-center p-4 border-b border-slate-700">
+                    <span className="font-semibold text-lg">Menu</span>
+                    <button onClick={() => setMobileMenuOpen(false)} className="p-2 text-slate-400">
+                        <X className="w-6 h-6" />
+                    </button>
+                </div>
+                <nav className="flex-1 overflow-auto">
+                    <Link to="/dashboard" className="flex items-center gap-3 p-4 border-b border-slate-700" onClick={() => setMobileMenuOpen(false)}>
+                        <Link2 className="w-5 h-5" /> Dashboard
+                    </Link>
+                    <Link to="/stats" className="flex items-center gap-3 p-4 border-b border-slate-700" onClick={() => setMobileMenuOpen(false)}>
+                        <BarChart3 className="w-5 h-5" /> Statystyki
+                    </Link>
+                    <Link to="/cpm-rates" className="flex items-center gap-3 p-4 border-b border-slate-700 text-green-500" onClick={() => setMobileMenuOpen(false)}>
+                        <Globe className="w-5 h-5" /> Stawki CPM
+                    </Link>
+                    <Link to="/payouts" className="flex items-center gap-3 p-4 border-b border-slate-700" onClick={() => setMobileMenuOpen(false)}>
+                        <Wallet className="w-5 h-5" /> Wypłaty
+                    </Link>
+                    <Link to="/profile" className="flex items-center gap-3 p-4 border-b border-slate-700" onClick={() => setMobileMenuOpen(false)}>
+                        <User className="w-5 h-5" /> Profil
+                    </Link>
+                </nav>
+                <div className="p-4 border-t border-slate-700">
+                    <button onClick={() => { handleLogout(); setMobileMenuOpen(false); }} className="flex items-center justify-center gap-2 w-full p-3 bg-red-500/10 text-red-500 border border-red-500 rounded-lg font-medium">
+                        <LogOut className="w-5 h-5" /> Wyloguj się
+                    </button>
+                </div>
+            </div>
+
+            {/* Tabs - horizontal scroll on mobile */}
+            <div className="border-b border-slate-800 overflow-x-auto">
+                <div className="max-w-7xl mx-auto px-3 sm:px-4">
+                    <div className="flex gap-1 sm:gap-4 min-w-max">
+                        {tabs.map(tab => (
                             <button
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id)}
-                                className={`flex items-center gap-2 px-4 py-3 border-b-2 transition whitespace-nowrap ${
+                                className={`flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-3 border-b-2 transition whitespace-nowrap text-sm sm:text-base min-h-[48px] ${
                                     activeTab === tab.id
-                                        ? 'border-primary-500 text-primary-500'
+                                        ? 'border-cyan-500 text-cyan-500'
                                         : 'border-transparent text-slate-400 hover:text-white'
                                 }`}
                             >
                                 <tab.icon className="w-4 h-4" />
-                                {tab.label}
+                                <span className="hidden sm:inline">{tab.label}</span>
                                 {tab.badge > 0 && (
-                                    <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
+                                    <span className="bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
                                         {tab.badge}
                                     </span>
                                 )}
@@ -248,59 +335,60 @@ function Admin() {
                 </div>
             </div>
 
-            <main className="max-w-7xl mx-auto px-4 py-8">
+            <main className="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-8">
                 {/* Tab: Statystyki */}
                 {activeTab === 'stats' && (
-                    <div className="space-y-8">
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-                                <div className="flex items-center gap-3 mb-2">
-                                    <Users className="w-5 h-5 text-blue-500" />
-                                    <span className="text-slate-400 text-sm">Użytkownicy</span>
+                    <div className="space-y-4 sm:space-y-8">
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 sm:p-6">
+                                <div className="flex items-center gap-2 sm:gap-3 mb-2">
+                                    <Users className="w-4 sm:w-5 h-4 sm:h-5 text-blue-500" />
+                                    <span className="text-slate-400 text-xs sm:text-sm">Użytkownicy</span>
                                 </div>
-                                <p className="text-2xl font-bold">{stats?.users?.total || 0}</p>
-                                <p className="text-sm text-green-500">+{stats?.users?.newToday || 0} dzisiaj</p>
+                                <p className="text-xl sm:text-2xl font-bold">{stats?.users?.total || 0}</p>
+                                <p className="text-xs sm:text-sm text-green-500">+{stats?.users?.newToday || 0} dzisiaj</p>
                             </div>
 
-                            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-                                <div className="flex items-center gap-3 mb-2">
-                                    <Link2 className="w-5 h-5 text-purple-500" />
-                                    <span className="text-slate-400 text-sm">Linki</span>
+                            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 sm:p-6">
+                                <div className="flex items-center gap-2 sm:gap-3 mb-2">
+                                    <Link2 className="w-4 sm:w-5 h-4 sm:h-5 text-purple-500" />
+                                    <span className="text-slate-400 text-xs sm:text-sm">Linki</span>
                                 </div>
-                                <p className="text-2xl font-bold">{stats?.links?.total || 0}</p>
+                                <p className="text-xl sm:text-2xl font-bold">{stats?.links?.total || 0}</p>
                             </div>
 
-                            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-                                <div className="flex items-center gap-3 mb-2">
-                                    <MousePointer className="w-5 h-5 text-yellow-500" />
-                                    <span className="text-slate-400 text-sm">Wizyty</span>
+                            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 sm:p-6">
+                                <div className="flex items-center gap-2 sm:gap-3 mb-2">
+                                    <MousePointer className="w-4 sm:w-5 h-4 sm:h-5 text-yellow-500" />
+                                    <span className="text-slate-400 text-xs sm:text-sm">Wizyty</span>
                                 </div>
-                                <p className="text-2xl font-bold">{stats?.visits?.total || 0}</p>
-                                <p className="text-sm text-green-500">+{stats?.visits?.today || 0} dzisiaj</p>
+                                <p className="text-xl sm:text-2xl font-bold">{stats?.visits?.total || 0}</p>
+                                <p className="text-xs sm:text-sm text-green-500">+{stats?.visits?.today || 0} dzisiaj</p>
                             </div>
 
-                            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-                                <div className="flex items-center gap-3 mb-2">
-                                    <DollarSign className="w-5 h-5 text-green-500" />
-                                    <span className="text-slate-400 text-sm">Zarobek platformy</span>
+                            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 sm:p-6">
+                                <div className="flex items-center gap-2 sm:gap-3 mb-2">
+                                    <DollarSign className="w-4 sm:w-5 h-4 sm:h-5 text-green-500" />
+                                    <span className="text-slate-400 text-xs sm:text-sm">Zarobek</span>
                                 </div>
-                                <p className="text-2xl font-bold text-green-500">
-                                    ${stats?.earnings?.platformTotal?.toFixed(4) || '0.0000'}
+                                <p className="text-xl sm:text-2xl font-bold text-green-500">
+                                    ${stats?.earnings?.platformTotal?.toFixed(2) || '0.00'}
                                 </p>
                             </div>
                         </div>
 
-                        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-                            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                                <TrendingUp className="w-5 h-5 text-primary-500" />
+                        {/* Chart */}
+                        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 sm:p-6">
+                            <h2 className="text-base sm:text-lg font-semibold mb-4 flex items-center gap-2">
+                                <TrendingUp className="w-4 sm:w-5 h-4 sm:h-5 text-cyan-500" />
                                 Ostatnie 7 dni
                             </h2>
-                            <div className="flex items-end justify-between gap-2 h-48">
+                            <div className="flex items-end justify-between gap-1 sm:gap-2 h-32 sm:h-48 overflow-x-auto">
                                 {stats?.dailyStats?.map((day, index) => (
-                                    <div key={index} className="flex-1 flex flex-col items-center gap-2">
-                                        <div className="w-full bg-slate-700 rounded-t-lg relative" style={{ height: '160px' }}>
+                                    <div key={index} className="flex-1 min-w-[36px] flex flex-col items-center gap-1 sm:gap-2">
+                                        <div className="w-full bg-slate-700 rounded-t-lg relative" style={{ height: '80px' }}>
                                             <div 
-                                                className="absolute bottom-0 w-full bg-primary-500 rounded-t-lg transition-all duration-500"
+                                                className="absolute bottom-0 w-full bg-cyan-500 rounded-t-lg transition-all duration-500"
                                                 style={{ 
                                                     height: `${maxVisits > 0 ? (day.visits / maxVisits) * 100 : 0}%`,
                                                     minHeight: day.visits > 0 ? '8px' : '0'
@@ -308,10 +396,10 @@ function Admin() {
                                             />
                                         </div>
                                         <div className="text-center">
-                                            <p className="text-xs text-slate-400">
+                                            <p className="text-[10px] sm:text-xs text-slate-400">
                                                 {new Date(day.date).toLocaleDateString('pl-PL', { weekday: 'short' })}
                                             </p>
-                                            <p className="text-sm font-semibold">{day.visits}</p>
+                                            <p className="text-xs sm:text-sm font-semibold">{day.visits}</p>
                                         </div>
                                     </div>
                                 ))}
@@ -323,10 +411,60 @@ function Admin() {
                 {/* Tab: Użytkownicy */}
                 {activeTab === 'users' && (
                     <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
-                        <div className="p-4 border-b border-slate-700">
-                            <h2 className="font-semibold">Wszyscy użytkownicy ({users.length})</h2>
+                        <div className="p-3 sm:p-4 border-b border-slate-700">
+                            <h2 className="font-semibold text-sm sm:text-base">Użytkownicy ({users.length})</h2>
                         </div>
-                        <div className="overflow-x-auto">
+                        
+                        {/* Mobile: Card view */}
+                        <div className="md:hidden divide-y divide-slate-700">
+                            {users.map(user => (
+                                <div key={user.id} className="p-4">
+                                    <div className="flex items-start justify-between mb-2">
+                                        <div className="flex items-center gap-2 min-w-0">
+                                            {user.isAdmin && <Crown className="w-4 h-4 text-yellow-500 flex-shrink-0" />}
+                                            <span className="text-sm truncate">{user.email}</span>
+                                        </div>
+                                        <span className={`px-2 py-0.5 rounded text-xs flex-shrink-0 ${
+                                            user.isActive 
+                                                ? 'bg-green-900/50 text-green-400' 
+                                                : 'bg-red-900/50 text-red-400'
+                                        }`}>
+                                            {user.isActive ? 'Aktywny' : 'Zablokowany'}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <div className="text-xs text-slate-400">
+                                            <span className="text-green-500">${user.balance.toFixed(2)}</span>
+                                            <span className="mx-2">•</span>
+                                            <span>{user.linksCount} linków</span>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                            <button
+                                                onClick={() => toggleUserStatus(user.id, user.isActive)}
+                                                className={`p-2 rounded-lg ${user.isActive ? 'text-red-400' : 'text-green-400'}`}
+                                            >
+                                                {user.isActive ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
+                                            </button>
+                                            <button
+                                                onClick={() => toggleUserAdmin(user.id, user.isAdmin)}
+                                                className={`p-2 rounded-lg ${user.isAdmin ? 'text-yellow-400' : 'text-slate-400'}`}
+                                            >
+                                                <Crown className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                                onClick={() => deleteUser(user.id)}
+                                                className="p-2 text-red-400 rounded-lg"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Desktop: Table view */}
+                        <div className="hidden md:block overflow-x-auto">
                             <table className="w-full">
                                 <thead className="bg-slate-700/50">
                                     <tr>
@@ -366,7 +504,6 @@ function Admin() {
                                                                 ? 'text-red-400 hover:bg-red-900/30'
                                                                 : 'text-green-400 hover:bg-green-900/30'
                                                         }`}
-                                                        title={user.isActive ? 'Zablokuj' : 'Odblokuj'}
                                                     >
                                                         {user.isActive ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
                                                     </button>
@@ -377,14 +514,12 @@ function Admin() {
                                                                 ? 'text-yellow-400 hover:bg-yellow-900/30'
                                                                 : 'text-slate-400 hover:bg-slate-700'
                                                         }`}
-                                                        title={user.isAdmin ? 'Usuń admina' : 'Nadaj admina'}
                                                     >
                                                         <Crown className="w-4 h-4" />
                                                     </button>
                                                     <button
                                                         onClick={() => deleteUser(user.id)}
                                                         className="p-2 text-red-400 hover:bg-red-900/30 rounded-lg transition"
-                                                        title="Usuń"
                                                     >
                                                         <Trash2 className="w-4 h-4" />
                                                     </button>
@@ -401,10 +536,39 @@ function Admin() {
                 {/* Tab: Linki */}
                 {activeTab === 'links' && (
                     <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
-                        <div className="p-4 border-b border-slate-700">
-                            <h2 className="font-semibold">Wszystkie linki ({links.length})</h2>
+                        <div className="p-3 sm:p-4 border-b border-slate-700">
+                            <h2 className="font-semibold text-sm sm:text-base">Linki ({links.length})</h2>
                         </div>
-                        <div className="overflow-x-auto">
+                        
+                        {/* Mobile: Card view */}
+                        <div className="md:hidden divide-y divide-slate-700">
+                            {links.map(link => (
+                                <div key={link.id} className="p-4">
+                                    <div className="flex items-start justify-between mb-2">
+                                        <div className="min-w-0 flex-1">
+                                            <p className="font-mono text-cyan-500 text-sm">{link.shortCode}</p>
+                                            <p className="text-xs text-slate-400 truncate">{link.originalUrl}</p>
+                                        </div>
+                                        <button
+                                            onClick={() => deleteLink(link.id)}
+                                            className="p-2 text-red-400 flex-shrink-0"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                    <div className="flex items-center justify-between text-xs">
+                                        <span className="text-slate-400">{link.userEmail}</span>
+                                        <div className="flex items-center gap-3">
+                                            <span>{link.totalClicks} klik.</span>
+                                            <span className="text-green-500">${link.totalEarned.toFixed(2)}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Desktop: Table view */}
+                        <div className="hidden md:block overflow-x-auto">
                             <table className="w-full">
                                 <thead className="bg-slate-700/50">
                                     <tr>
@@ -419,7 +583,7 @@ function Admin() {
                                     {links.map(link => (
                                         <tr key={link.id} className="hover:bg-slate-700/30">
                                             <td className="p-4">
-                                                <p className="font-mono text-primary-500">{link.shortCode}</p>
+                                                <p className="font-mono text-cyan-500">{link.shortCode}</p>
                                                 <p className="text-xs text-slate-400 truncate max-w-xs">{link.originalUrl}</p>
                                             </td>
                                             <td className="p-4 text-sm">{link.userEmail}</td>
@@ -429,7 +593,6 @@ function Admin() {
                                                 <button
                                                     onClick={() => deleteLink(link.id)}
                                                     className="p-2 text-red-400 hover:bg-red-900/30 rounded-lg transition"
-                                                    title="Usuń"
                                                 >
                                                     <Trash2 className="w-4 h-4" />
                                                 </button>
@@ -444,105 +607,144 @@ function Admin() {
 
                 {/* Tab: Wypłaty */}
                 {activeTab === 'payouts' && (
-                    <div className="space-y-6">
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            <div className="bg-yellow-900/20 border border-yellow-700/50 rounded-xl p-6">
-                                <div className="flex items-center gap-3 mb-2">
-                                    <Clock className="w-5 h-5 text-yellow-500" />
-                                    <span className="text-slate-400 text-sm">Oczekujące</span>
+                    <div className="space-y-4 sm:space-y-6">
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                            <div className="bg-yellow-900/20 border border-yellow-700/50 rounded-xl p-4 sm:p-6">
+                                <div className="flex items-center gap-2 sm:gap-3 mb-2">
+                                    <Clock className="w-4 sm:w-5 h-4 sm:h-5 text-yellow-500" />
+                                    <span className="text-slate-400 text-xs sm:text-sm">Oczekujące</span>
                                 </div>
-                                <p className="text-2xl font-bold text-yellow-500">{payoutStats.pending}</p>
-                                <p className="text-sm text-yellow-500/70">${payoutStats.pendingAmount.toFixed(2)}</p>
+                                <p className="text-xl sm:text-2xl font-bold text-yellow-500">{payoutStats.pending}</p>
+                                <p className="text-xs sm:text-sm text-yellow-500/70">${payoutStats.pendingAmount.toFixed(2)}</p>
                             </div>
 
-                            <div className="bg-green-900/20 border border-green-700/50 rounded-xl p-6">
-                                <div className="flex items-center gap-3 mb-2">
-                                    <CheckCircle className="w-5 h-5 text-green-500" />
-                                    <span className="text-slate-400 text-sm">Zrealizowane</span>
+                            <div className="bg-green-900/20 border border-green-700/50 rounded-xl p-4 sm:p-6">
+                                <div className="flex items-center gap-2 sm:gap-3 mb-2">
+                                    <CheckCircle className="w-4 sm:w-5 h-4 sm:h-5 text-green-500" />
+                                    <span className="text-slate-400 text-xs sm:text-sm">Zrealizowane</span>
                                 </div>
-                                <p className="text-2xl font-bold text-green-500">{payoutStats.completed}</p>
-                                <p className="text-sm text-green-500/70">${payoutStats.completedAmount.toFixed(2)}</p>
+                                <p className="text-xl sm:text-2xl font-bold text-green-500">{payoutStats.completed}</p>
+                                <p className="text-xs sm:text-sm text-green-500/70">${payoutStats.completedAmount.toFixed(2)}</p>
                             </div>
 
-                            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-                                <div className="flex items-center gap-3 mb-2">
-                                    <Wallet className="w-5 h-5 text-blue-500" />
-                                    <span className="text-slate-400 text-sm">Wszystkie</span>
+                            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 sm:p-6">
+                                <div className="flex items-center gap-2 sm:gap-3 mb-2">
+                                    <Wallet className="w-4 sm:w-5 h-4 sm:h-5 text-blue-500" />
+                                    <span className="text-slate-400 text-xs sm:text-sm">Wszystkie</span>
                                 </div>
-                                <p className="text-2xl font-bold">{payouts.length}</p>
+                                <p className="text-xl sm:text-2xl font-bold">{payouts.length}</p>
                             </div>
 
-                            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-                                <div className="flex items-center gap-3 mb-2">
-                                    <DollarSign className="w-5 h-5 text-purple-500" />
-                                    <span className="text-slate-400 text-sm">Łączna wartość</span>
+                            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 sm:p-6">
+                                <div className="flex items-center gap-2 sm:gap-3 mb-2">
+                                    <DollarSign className="w-4 sm:w-5 h-4 sm:h-5 text-purple-500" />
+                                    <span className="text-slate-400 text-xs sm:text-sm">Łącznie</span>
                                 </div>
-                                <p className="text-2xl font-bold text-purple-500">
+                                <p className="text-xl sm:text-2xl font-bold text-purple-500">
                                     ${payouts.reduce((sum, p) => sum + (p.amount || 0), 0).toFixed(2)}
                                 </p>
                             </div>
                         </div>
 
                         <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
-                            <div className="p-4 border-b border-slate-700">
-                                <h2 className="font-semibold">Wszystkie wypłaty ({payouts.length})</h2>
+                            <div className="p-3 sm:p-4 border-b border-slate-700">
+                                <h2 className="font-semibold text-sm sm:text-base">Wypłaty ({payouts.length})</h2>
                             </div>
 
                             {payouts.length === 0 ? (
-                                <div className="p-12 text-center">
-                                    <Wallet className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-                                    <p className="text-slate-400">Brak wypłat</p>
+                                <div className="p-8 sm:p-12 text-center">
+                                    <Wallet className="w-10 sm:w-12 h-10 sm:h-12 text-slate-600 mx-auto mb-4" />
+                                    <p className="text-slate-400 text-sm">Brak wypłat</p>
                                 </div>
                             ) : (
-                                <div className="overflow-x-auto">
-                                    <table className="w-full">
-                                        <thead className="bg-slate-700/50">
-                                            <tr>
-                                                <th className="text-left p-4 text-sm font-medium text-slate-400">Data</th>
-                                                <th className="text-left p-4 text-sm font-medium text-slate-400">Użytkownik</th>
-                                                <th className="text-left p-4 text-sm font-medium text-slate-400">Kwota</th>
-                                                <th className="text-left p-4 text-sm font-medium text-slate-400">Metoda</th>
-                                                <th className="text-left p-4 text-sm font-medium text-slate-400">Status</th>
-                                                <th className="text-left p-4 text-sm font-medium text-slate-400">Akcje</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-slate-700">
-                                            {payouts.map(payout => (
-                                                <tr key={payout.id} className="hover:bg-slate-700/30">
-                                                    <td className="p-4 text-sm text-slate-400">
-                                                        {new Date(payout.createdAt).toLocaleDateString('pl-PL')}
-                                                    </td>
-                                                    <td className="p-4 text-sm">{payout.userEmail}</td>
-                                                    <td className="p-4 font-semibold text-green-500">
-                                                        ${(payout.amount || 0).toFixed(2)}
-                                                    </td>
-                                                    <td className="p-4 text-sm">{getMethodLabel(payout.method)}</td>
-                                                    <td className="p-4">{getPayoutStatusBadge(payout.status)}</td>
-                                                    <td className="p-4">
-                                                        {payout.status === 'PENDING' && (
-                                                            <div className="flex items-center gap-1">
-                                                                <button
-                                                                    onClick={() => updatePayoutStatus(payout.id, 'COMPLETED')}
-                                                                    className="p-2 text-green-400 hover:bg-green-900/30 rounded-lg transition"
-                                                                    title="Zatwierdź"
-                                                                >
-                                                                    <CheckCircle className="w-4 h-4" />
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => updatePayoutStatus(payout.id, 'REJECTED')}
-                                                                    className="p-2 text-red-400 hover:bg-red-900/30 rounded-lg transition"
-                                                                    title="Odrzuć"
-                                                                >
-                                                                    <XCircle className="w-4 h-4" />
-                                                                </button>
-                                                            </div>
-                                                        )}
-                                                    </td>
+                                <>
+                                    {/* Mobile: Card view */}
+                                    <div className="md:hidden divide-y divide-slate-700">
+                                        {payouts.map(payout => (
+                                            <div key={payout.id} className="p-4">
+                                                <div className="flex items-start justify-between mb-2">
+                                                    <div>
+                                                        <p className="font-semibold text-green-500">${(payout.amount || 0).toFixed(2)}</p>
+                                                        <p className="text-xs text-slate-400">{payout.userEmail}</p>
+                                                    </div>
+                                                    {getPayoutStatusBadge(payout.status)}
+                                                </div>
+                                                <div className="flex items-center justify-between text-xs">
+                                                    <div className="text-slate-400">
+                                                        <span>{getMethodLabel(payout.method)}</span>
+                                                        <span className="mx-2">•</span>
+                                                        <span>{new Date(payout.createdAt).toLocaleDateString('pl-PL')}</span>
+                                                    </div>
+                                                    {payout.status === 'PENDING' && (
+                                                        <div className="flex items-center gap-1">
+                                                            <button
+                                                                onClick={() => updatePayoutStatus(payout.id, 'COMPLETED')}
+                                                                className="p-2 text-green-400"
+                                                            >
+                                                                <CheckCircle className="w-4 h-4" />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => updatePayoutStatus(payout.id, 'REJECTED')}
+                                                                className="p-2 text-red-400"
+                                                            >
+                                                                <XCircle className="w-4 h-4" />
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {/* Desktop: Table view */}
+                                    <div className="hidden md:block overflow-x-auto">
+                                        <table className="w-full">
+                                            <thead className="bg-slate-700/50">
+                                                <tr>
+                                                    <th className="text-left p-4 text-sm font-medium text-slate-400">Data</th>
+                                                    <th className="text-left p-4 text-sm font-medium text-slate-400">Użytkownik</th>
+                                                    <th className="text-left p-4 text-sm font-medium text-slate-400">Kwota</th>
+                                                    <th className="text-left p-4 text-sm font-medium text-slate-400">Metoda</th>
+                                                    <th className="text-left p-4 text-sm font-medium text-slate-400">Status</th>
+                                                    <th className="text-left p-4 text-sm font-medium text-slate-400">Akcje</th>
                                                 </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-700">
+                                                {payouts.map(payout => (
+                                                    <tr key={payout.id} className="hover:bg-slate-700/30">
+                                                        <td className="p-4 text-sm text-slate-400">
+                                                            {new Date(payout.createdAt).toLocaleDateString('pl-PL')}
+                                                        </td>
+                                                        <td className="p-4 text-sm">{payout.userEmail}</td>
+                                                        <td className="p-4 font-semibold text-green-500">
+                                                            ${(payout.amount || 0).toFixed(2)}
+                                                        </td>
+                                                        <td className="p-4 text-sm">{getMethodLabel(payout.method)}</td>
+                                                        <td className="p-4">{getPayoutStatusBadge(payout.status)}</td>
+                                                        <td className="p-4">
+                                                            {payout.status === 'PENDING' && (
+                                                                <div className="flex items-center gap-1">
+                                                                    <button
+                                                                        onClick={() => updatePayoutStatus(payout.id, 'COMPLETED')}
+                                                                        className="p-2 text-green-400 hover:bg-green-900/30 rounded-lg transition"
+                                                                    >
+                                                                        <CheckCircle className="w-4 h-4" />
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => updatePayoutStatus(payout.id, 'REJECTED')}
+                                                                        className="p-2 text-red-400 hover:bg-red-900/30 rounded-lg transition"
+                                                                    >
+                                                                        <XCircle className="w-4 h-4" />
+                                                                    </button>
+                                                                </div>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </>
                             )}
                         </div>
                     </div>
@@ -550,92 +752,87 @@ function Admin() {
 
                 {/* Tab: Wiadomości */}
                 {activeTab === 'messages' && (
-                    <div className="space-y-6">
-                        {/* Statystyki wiadomości */}
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                            <div className="bg-blue-900/20 border border-blue-700/50 rounded-xl p-6">
-                                <div className="flex items-center gap-3 mb-2">
-                                    <Mail className="w-5 h-5 text-blue-500" />
-                                    <span className="text-slate-400 text-sm">Wszystkie</span>
+                    <div className="space-y-4 sm:space-y-6">
+                        <div className="grid grid-cols-3 gap-3 sm:gap-4">
+                            <div className="bg-blue-900/20 border border-blue-700/50 rounded-xl p-4 sm:p-6">
+                                <div className="flex items-center gap-2 sm:gap-3 mb-2">
+                                    <Mail className="w-4 sm:w-5 h-4 sm:h-5 text-blue-500" />
+                                    <span className="text-slate-400 text-xs sm:text-sm hidden sm:inline">Wszystkie</span>
                                 </div>
-                                <p className="text-2xl font-bold text-blue-500">{messages.length}</p>
+                                <p className="text-xl sm:text-2xl font-bold text-blue-500">{messages.length}</p>
                             </div>
 
-                            <div className="bg-yellow-900/20 border border-yellow-700/50 rounded-xl p-6">
-                                <div className="flex items-center gap-3 mb-2">
-                                    <EyeOff className="w-5 h-5 text-yellow-500" />
-                                    <span className="text-slate-400 text-sm">Nieprzeczytane</span>
+                            <div className="bg-yellow-900/20 border border-yellow-700/50 rounded-xl p-4 sm:p-6">
+                                <div className="flex items-center gap-2 sm:gap-3 mb-2">
+                                    <EyeOff className="w-4 sm:w-5 h-4 sm:h-5 text-yellow-500" />
+                                    <span className="text-slate-400 text-xs sm:text-sm hidden sm:inline">Nowe</span>
                                 </div>
-                                <p className="text-2xl font-bold text-yellow-500">{unreadCount}</p>
+                                <p className="text-xl sm:text-2xl font-bold text-yellow-500">{unreadCount}</p>
                             </div>
 
-                            <div className="bg-green-900/20 border border-green-700/50 rounded-xl p-6">
-                                <div className="flex items-center gap-3 mb-2">
-                                    <Eye className="w-5 h-5 text-green-500" />
-                                    <span className="text-slate-400 text-sm">Przeczytane</span>
+                            <div className="bg-green-900/20 border border-green-700/50 rounded-xl p-4 sm:p-6">
+                                <div className="flex items-center gap-2 sm:gap-3 mb-2">
+                                    <Eye className="w-4 sm:w-5 h-4 sm:h-5 text-green-500" />
+                                    <span className="text-slate-400 text-xs sm:text-sm hidden sm:inline">Przeczytane</span>
                                 </div>
-                                <p className="text-2xl font-bold text-green-500">{messages.length - unreadCount}</p>
+                                <p className="text-xl sm:text-2xl font-bold text-green-500">{messages.length - unreadCount}</p>
                             </div>
                         </div>
 
-                        {/* Lista wiadomości */}
                         <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
-                            <div className="p-4 border-b border-slate-700">
-                                <h2 className="font-semibold">Wiadomości kontaktowe</h2>
+                            <div className="p-3 sm:p-4 border-b border-slate-700">
+                                <h2 className="font-semibold text-sm sm:text-base">Wiadomości</h2>
                             </div>
 
                             {messages.length === 0 ? (
-                                <div className="p-12 text-center">
-                                    <MessageSquare className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-                                    <p className="text-slate-400">Brak wiadomości</p>
+                                <div className="p-8 sm:p-12 text-center">
+                                    <MessageSquare className="w-10 sm:w-12 h-10 sm:h-12 text-slate-600 mx-auto mb-4" />
+                                    <p className="text-slate-400 text-sm">Brak wiadomości</p>
                                 </div>
                             ) : (
                                 <div className="divide-y divide-slate-700">
                                     {messages.map(message => (
                                         <div 
                                             key={message.id} 
-                                            className={`p-4 ${!message.isRead ? 'bg-blue-900/10' : ''}`}
+                                            className={`p-3 sm:p-4 ${!message.isRead ? 'bg-blue-900/10' : ''}`}
                                         >
-                                            <div className="flex items-start justify-between gap-4">
+                                            <div className="flex items-start justify-between gap-2 sm:gap-4">
                                                 <div className="flex-1 min-w-0">
-                                                    <div className="flex items-center gap-2 mb-1">
+                                                    <div className="flex items-center gap-2 mb-1 flex-wrap">
                                                         {!message.isRead && (
-                                                            <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                                                            <span className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></span>
                                                         )}
-                                                        <span className="font-semibold">{message.name}</span>
-                                                        <span className="text-slate-400 text-sm">({message.email})</span>
+                                                        <span className="font-semibold text-sm sm:text-base">{message.name}</span>
+                                                        <span className="text-slate-400 text-xs sm:text-sm truncate">({message.email})</span>
                                                     </div>
-                                                    <p className="text-primary-400 text-sm mb-2">
-                                                        Temat: {message.subject}
+                                                    <p className="text-cyan-400 text-xs sm:text-sm mb-2 truncate">
+                                                        {message.subject}
                                                     </p>
-                                                    <p className="text-slate-300 text-sm whitespace-pre-wrap">
+                                                    <p className="text-slate-300 text-xs sm:text-sm line-clamp-2 sm:line-clamp-none">
                                                         {message.message}
                                                     </p>
                                                     <p className="text-slate-500 text-xs mt-2">
                                                         {new Date(message.createdAt).toLocaleString('pl-PL')}
                                                     </p>
                                                 </div>
-                                                <div className="flex items-center gap-2">
+                                                <div className="flex items-center gap-1 flex-shrink-0">
                                                     {!message.isRead && (
                                                         <button
                                                             onClick={() => markAsRead(message.id)}
-                                                            className="p-2 text-blue-400 hover:bg-blue-900/30 rounded-lg transition"
-                                                            title="Oznacz jako przeczytane"
+                                                            className="p-2 text-blue-400 hover:bg-blue-900/30 rounded-lg transition min-w-[40px] min-h-[40px] flex items-center justify-center"
                                                         >
                                                             <Eye className="w-4 h-4" />
                                                         </button>
                                                     )}
                                                     <a
                                                         href={`mailto:${message.email}?subject=Re: ${message.subject}`}
-                                                        className="p-2 text-green-400 hover:bg-green-900/30 rounded-lg transition"
-                                                        title="Odpowiedz"
+                                                        className="p-2 text-green-400 hover:bg-green-900/30 rounded-lg transition min-w-[40px] min-h-[40px] flex items-center justify-center"
                                                     >
                                                         <Mail className="w-4 h-4" />
                                                     </a>
                                                     <button
                                                         onClick={() => deleteMessage(message.id)}
-                                                        className="p-2 text-red-400 hover:bg-red-900/30 rounded-lg transition"
-                                                        title="Usuń"
+                                                        className="p-2 text-red-400 hover:bg-red-900/30 rounded-lg transition min-w-[40px] min-h-[40px] flex items-center justify-center"
                                                     >
                                                         <Trash2 className="w-4 h-4" />
                                                     </button>

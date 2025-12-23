@@ -1,11 +1,34 @@
+// Unlock.jsx - RESPONSYWNY
 import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { Link2, Clock, CheckCircle, ExternalLink, Loader2, AlertCircle, Shield, MousePointer, ShieldOff, RefreshCw } from 'lucide-react';
 import HCaptcha from '@hcaptcha/react-hcaptcha';
 import AdBanner from '../components/AdBanner';
 
+// Hook do wykrywania rozmiaru ekranu
+const useWindowSize = () => {
+    const [windowSize, setWindowSize] = useState({
+        width: typeof window !== 'undefined' ? window.innerWidth : 1024,
+    });
+
+    useEffect(() => {
+        const handleResize = () => {
+            setWindowSize({ width: window.innerWidth });
+        };
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+    return {
+        ...windowSize,
+        isMobile: windowSize.width < 768
+    };
+};
+
 function Unlock() {
     const { shortCode } = useParams();
+    const { isMobile } = useWindowSize();
+    
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [linkData, setLinkData] = useState(null);
@@ -17,11 +40,9 @@ function Unlock() {
     const [unlocking, setUnlocking] = useState(false);
     const [targetUrl, setTargetUrl] = useState(null);
     
-    // AdBlock detection
     const [adBlockDetected, setAdBlockDetected] = useState(false);
     const [checkingAdBlock, setCheckingAdBlock] = useState(true);
     
-    // Captcha
     const [captchaToken, setCaptchaToken] = useState(null);
     const [showCaptcha, setShowCaptcha] = useState(false);
     const captchaRef = useRef(null);
@@ -29,12 +50,10 @@ function Unlock() {
     const HCAPTCHA_SITE_KEY = 'c6486bc4-4a2e-4c3c-b8e6-720cf3dc324e';
     const DIRECT_LINK = 'https://www.effectivegatecpm.com/ywkxbw41h?key=d1f50bdb00b57c1ece2c8c53b6332d4d';
 
-    // Funkcja wykrywania AdBlocka
     const detectAdBlock = async () => {
         setCheckingAdBlock(true);
         
         try {
-            // Metoda 1: Sprawdź czy skrypt reklamowy się załaduje
             const testAd = document.createElement('div');
             testAd.innerHTML = '&nbsp;';
             testAd.className = 'adsbox ad-banner ad-placeholder textads banner-ads';
@@ -56,25 +75,13 @@ function Unlock() {
                 return;
             }
             
-            // Metoda 2: Próba pobrania skryptu reklamowego
             try {
-                const response = await fetch('https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js', {
+                await fetch('https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js', {
                     method: 'HEAD',
                     mode: 'no-cors',
                     cache: 'no-cache'
                 });
                 setAdBlockDetected(false);
-            } catch (e) {
-                setAdBlockDetected(true);
-            }
-            
-            // Metoda 3: Sprawdź czy AdsTerra się ładuje
-            try {
-                const adsResponse = await fetch('https://www.profitabledisplaynetwork.com', {
-                    method: 'HEAD',
-                    mode: 'no-cors',
-                    cache: 'no-cache'
-                });
             } catch (e) {
                 setAdBlockDetected(true);
             }
@@ -86,12 +93,10 @@ function Unlock() {
         setCheckingAdBlock(false);
     };
 
-    // Sprawdź AdBlock przy montowaniu
     useEffect(() => {
         detectAdBlock();
     }, []);
 
-    // Funkcja ponownego sprawdzenia (po wyłączeniu AdBlocka)
     const recheckAdBlock = () => {
         detectAdBlock();
     };
@@ -196,18 +201,117 @@ function Unlock() {
         }
     };
 
+    // Styles
+    const styles = {
+        container: {
+            minHeight: '100vh',
+            backgroundColor: '#0f172a',
+            color: '#f8fafc'
+        },
+        centerScreen: {
+            minHeight: '100vh',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: '#0f172a',
+            padding: '16px',
+            flexDirection: 'column',
+            gap: '16px'
+        },
+        header: {
+            borderBottom: '1px solid #1e293b',
+            backgroundColor: 'rgba(15, 23, 42, 0.9)',
+            padding: isMobile ? '12px' : '16px',
+            position: 'sticky',
+            top: 0,
+            zIndex: 50,
+            backdropFilter: 'blur(8px)'
+        },
+        headerContent: {
+            maxWidth: '1200px',
+            margin: '0 auto',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between'
+        },
+        main: {
+            maxWidth: '800px',
+            margin: '0 auto',
+            padding: isMobile ? '16px 12px' : '32px 16px'
+        },
+        stepIndicator: {
+            display: 'flex',
+            justifyContent: 'center',
+            gap: isMobile ? '12px' : '16px',
+            marginBottom: isMobile ? '20px' : '32px'
+        },
+        stepCircle: (isActive, isComplete) => ({
+            width: isMobile ? '36px' : '40px',
+            height: isMobile ? '36px' : '40px',
+            borderRadius: '50%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontWeight: 'bold',
+            fontSize: isMobile ? '14px' : '16px',
+            backgroundColor: isComplete ? '#22c55e' : isActive ? '#0ea5e9' : '#334155',
+            color: isComplete || isActive ? '#ffffff' : '#94a3b8'
+        }),
+        infoCard: {
+            backgroundColor: 'rgba(30, 41, 59, 0.5)',
+            border: '1px solid #334155',
+            borderRadius: isMobile ? '12px' : '16px',
+            padding: isMobile ? '16px' : '24px',
+            marginBottom: isMobile ? '20px' : '32px',
+            textAlign: 'center'
+        },
+        adCard: (clicked) => ({
+            backgroundColor: clicked ? 'rgba(34, 197, 94, 0.1)' : 'rgba(30, 41, 59, 0.3)',
+            border: clicked ? '2px solid #22c55e' : '2px solid #eab308',
+            borderRadius: isMobile ? '12px' : '16px',
+            padding: isMobile ? '20px 16px' : '32px',
+            marginBottom: '16px',
+            textAlign: 'center'
+        }),
+        button: (enabled) => ({
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '12px',
+            padding: isMobile ? '14px 24px' : '16px 32px',
+            borderRadius: '12px',
+            fontWeight: 'bold',
+            fontSize: isMobile ? '16px' : '18px',
+            border: 'none',
+            backgroundColor: enabled ? '#0ea5e9' : '#334155',
+            color: enabled ? '#ffffff' : '#94a3b8',
+            cursor: enabled ? 'pointer' : 'not-allowed',
+            width: isMobile ? '100%' : 'auto',
+            minHeight: '48px'
+        }),
+        unlockButton: (enabled) => ({
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '12px',
+            backgroundColor: enabled ? '#22c55e' : '#334155',
+            color: '#ffffff',
+            padding: isMobile ? '14px 24px' : '16px 32px',
+            borderRadius: '12px',
+            fontWeight: 'bold',
+            fontSize: isMobile ? '16px' : '18px',
+            border: 'none',
+            cursor: enabled ? 'pointer' : 'not-allowed',
+            opacity: enabled ? 1 : 0.7,
+            width: isMobile ? '100%' : 'auto',
+            minHeight: '48px'
+        })
+    };
+
     // Ekran ładowania sprawdzania AdBlocka
     if (checkingAdBlock) {
         return (
-            <div style={{ 
-                minHeight: '100vh', 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                backgroundColor: '#0f172a',
-                flexDirection: 'column',
-                gap: '16px'
-            }}>
+            <div style={styles.centerScreen}>
                 <Loader2 className="animate-spin" style={{ width: '48px', height: '48px', color: '#0ea5e9' }} />
                 <p style={{ color: '#94a3b8', fontSize: '16px' }}>Sprawdzanie połączenia...</p>
             </div>
@@ -217,27 +321,19 @@ function Unlock() {
     // Ekran blokady - AdBlock wykryty
     if (adBlockDetected) {
         return (
-            <div style={{ 
-                minHeight: '100vh', 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                backgroundColor: '#0f172a',
-                padding: '16px'
-            }}>
+            <div style={styles.centerScreen}>
                 <div style={{ 
                     maxWidth: '500px', 
                     width: '100%',
                     backgroundColor: 'rgba(30, 41, 59, 0.8)',
                     border: '2px solid #ef4444',
                     borderRadius: '24px',
-                    padding: '48px 32px',
+                    padding: isMobile ? '32px 20px' : '48px 32px',
                     textAlign: 'center'
                 }}>
-                    {/* Ikona */}
                     <div style={{
-                        width: '80px',
-                        height: '80px',
+                        width: isMobile ? '64px' : '80px',
+                        height: isMobile ? '64px' : '80px',
                         borderRadius: '50%',
                         backgroundColor: 'rgba(239, 68, 68, 0.2)',
                         display: 'flex',
@@ -245,64 +341,38 @@ function Unlock() {
                         justifyContent: 'center',
                         margin: '0 auto 24px'
                     }}>
-                        <ShieldOff style={{ width: '40px', height: '40px', color: '#ef4444' }} />
+                        <ShieldOff style={{ width: isMobile ? '32px' : '40px', height: isMobile ? '32px' : '40px', color: '#ef4444' }} />
                     </div>
 
-                    {/* Tytuł */}
-                    <h1 style={{ 
-                        fontSize: '28px', 
-                        fontWeight: 'bold', 
-                        color: '#f8fafc',
-                        marginBottom: '16px'
-                    }}>
+                    <h1 style={{ fontSize: isMobile ? '24px' : '28px', fontWeight: 'bold', color: '#f8fafc', marginBottom: '16px' }}>
                         AdBlock wykryty
                     </h1>
 
-                    {/* Opis */}
-                    <p style={{ 
-                        color: '#94a3b8', 
-                        fontSize: '16px',
-                        lineHeight: '1.6',
-                        marginBottom: '32px'
-                    }}>
-                        Aby uzyskać dostęp do tego linku, wyłącz rozszerzenie blokujące reklamy 
-                        (AdBlock, uBlock Origin, itp.) i odśwież stronę.
+                    <p style={{ color: '#94a3b8', fontSize: isMobile ? '14px' : '16px', lineHeight: '1.6', marginBottom: '24px' }}>
+                        Aby uzyskać dostęp do tego linku, wyłącz rozszerzenie blokujące reklamy i odśwież stronę.
                     </p>
 
-                    {/* Instrukcja */}
                     <div style={{
                         backgroundColor: 'rgba(15, 23, 42, 0.6)',
                         borderRadius: '16px',
-                        padding: '24px',
-                        marginBottom: '32px',
+                        padding: isMobile ? '16px' : '24px',
+                        marginBottom: '24px',
                         textAlign: 'left'
                     }}>
-                        <h3 style={{ 
-                            color: '#f8fafc', 
-                            fontSize: '16px', 
-                            fontWeight: 'bold',
-                            marginBottom: '16px'
-                        }}>
+                        <h3 style={{ color: '#f8fafc', fontSize: isMobile ? '14px' : '16px', fontWeight: 'bold', marginBottom: '12px' }}>
                             Jak wyłączyć AdBlock:
                         </h3>
-                        <ol style={{ 
-                            color: '#94a3b8', 
-                            fontSize: '14px',
-                            lineHeight: '2',
-                            paddingLeft: '20px',
-                            margin: 0
-                        }}>
-                            <li>Kliknij ikonę AdBlocka w pasku przeglądarki</li>
-                            <li>Wybierz "Wstrzymaj" lub "Wyłącz na tej stronie"</li>
-                            <li>Kliknij przycisk poniżej aby sprawdzić ponownie</li>
+                        <ol style={{ color: '#94a3b8', fontSize: isMobile ? '13px' : '14px', lineHeight: '2', paddingLeft: '20px', margin: 0 }}>
+                            <li>Kliknij ikonę AdBlocka w przeglądarce</li>
+                            <li>Wybierz "Wyłącz na tej stronie"</li>
+                            <li>Kliknij przycisk poniżej</li>
                         </ol>
                     </div>
 
-                    {/* Przycisk ponownego sprawdzenia */}
                     <button
                         onClick={recheckAdBlock}
                         style={{
-                            display: 'inline-flex',
+                            display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
                             gap: '12px',
@@ -315,23 +385,15 @@ function Unlock() {
                             border: 'none',
                             cursor: 'pointer',
                             width: '100%',
-                            transition: 'background-color 0.2s'
+                            minHeight: '48px'
                         }}
-                        onMouseOver={(e) => e.target.style.backgroundColor = '#0284c7'}
-                        onMouseOut={(e) => e.target.style.backgroundColor = '#0ea5e9'}
                     >
                         <RefreshCw style={{ width: '20px', height: '20px' }} />
                         Sprawdź ponownie
                     </button>
 
-                    {/* Info */}
-                    <p style={{ 
-                        color: '#64748b', 
-                        fontSize: '12px',
-                        marginTop: '24px'
-                    }}>
-                        Reklamy pozwalają nam utrzymać serwis i wspierać twórców.
-                        <br />Dziękujemy za zrozumienie! ❤️
+                    <p style={{ color: '#64748b', fontSize: '12px', marginTop: '24px' }}>
+                        Reklamy pozwalają nam utrzymać serwis ❤️
                     </p>
                 </div>
             </div>
@@ -340,7 +402,7 @@ function Unlock() {
 
     if (loading) {
         return (
-            <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#0f172a' }}>
+            <div style={styles.centerScreen}>
                 <Loader2 className="animate-spin" style={{ width: '32px', height: '32px', color: '#0ea5e9' }} />
             </div>
         );
@@ -348,7 +410,7 @@ function Unlock() {
 
     if (error && !linkData) {
         return (
-            <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#0f172a', color: '#f8fafc', padding: '16px' }}>
+            <div style={styles.centerScreen}>
                 <div style={{ textAlign: 'center' }}>
                     <AlertCircle style={{ width: '64px', height: '64px', color: '#ef4444', margin: '0 auto 16px' }} />
                     <h1 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '8px' }}>Błąd</h1>
@@ -360,7 +422,7 @@ function Unlock() {
 
     if (targetUrl) {
         return (
-            <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#0f172a', color: '#f8fafc', padding: '16px' }}>
+            <div style={styles.centerScreen}>
                 <div style={{ textAlign: 'center' }}>
                     <CheckCircle style={{ width: '64px', height: '64px', color: '#22c55e', margin: '0 auto 16px' }} />
                     <h1 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '8px' }}>Link odblokowany!</h1>
@@ -375,89 +437,71 @@ function Unlock() {
     }
 
     return (
-        <div style={{ minHeight: '100vh', backgroundColor: '#0f172a', color: '#f8fafc' }}>
+        <div style={styles.container}>
             {/* Header */}
-            <header style={{ borderBottom: '1px solid #1e293b', backgroundColor: 'rgba(15, 23, 42, 0.8)', padding: '16px' }}>
-                <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <header style={styles.header}>
+                <div style={styles.headerContent}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <Link2 style={{ width: '24px', height: '24px', color: '#0ea5e9' }} />
-                        <span style={{ fontWeight: 'bold' }}>AngoraLinks</span>
+                        <span style={{ fontWeight: 'bold', fontSize: isMobile ? '16px' : '18px' }}>AngoraLinks</span>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: '#94a3b8' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: isMobile ? '12px' : '14px', color: '#94a3b8' }}>
                         <Shield style={{ width: '16px', height: '16px' }} />
-                        Bezpieczny link
+                        <span style={{ display: isMobile ? 'none' : 'inline' }}>Bezpieczny link</span>
                     </div>
                 </div>
             </header>
 
             {/* Progress bar */}
-            <div style={{ backgroundColor: '#1e293b', height: '8px' }}>
+            <div style={{ backgroundColor: '#1e293b', height: '6px' }}>
                 <div style={{ backgroundColor: '#0ea5e9', height: '100%', width: `${(step / 3) * 100}%`, transition: 'width 0.5s' }} />
             </div>
 
             {/* Main */}
-            <main style={{ maxWidth: '800px', margin: '0 auto', padding: '32px 16px' }}>
+            <main style={styles.main}>
                 {/* Kroki */}
-                <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginBottom: '32px' }}>
+                <div style={styles.stepIndicator}>
                     {[1, 2, 3].map((s) => (
-                        <div 
-                            key={s}
-                            style={{ 
-                                width: '40px', 
-                                height: '40px', 
-                                borderRadius: '50%', 
-                                display: 'flex', 
-                                alignItems: 'center', 
-                                justifyContent: 'center', 
-                                fontWeight: 'bold',
-                                backgroundColor: s < step ? '#22c55e' : s === step ? '#0ea5e9' : '#334155',
-                                color: s <= step ? '#ffffff' : '#94a3b8'
-                            }}
-                        >
+                        <div key={s} style={styles.stepCircle(s === step, s < step)}>
                             {s < step ? <CheckCircle style={{ width: '20px', height: '20px' }} /> : s}
                         </div>
                     ))}
                 </div>
 
                 {/* Link info */}
-                <div style={{ backgroundColor: 'rgba(30, 41, 59, 0.5)', border: '1px solid #334155', borderRadius: '16px', padding: '24px', marginBottom: '32px', textAlign: 'center' }}>
-                    <h1 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '8px' }}>{linkData?.title || 'Przejdź do strony'}</h1>
-                    <p style={{ color: '#94a3b8' }}>
-                        {step === 1 && (adClicked ? '✓ Kliknij przycisk aby przejść dalej' : 'Krok 1 z 3 - Kliknij przycisk aby otworzyć reklamę')}
-                        {step === 2 && (adClicked ? '✓ Kliknij przycisk aby przejść dalej' : 'Krok 2 z 3 - Kliknij w reklamę')}
-                        {step === 3 && (!adClicked ? 'Krok 3 z 3 - Kliknij w reklamę aby rozpocząć timer' : timerDone ? '✓ Rozwiąż captcha i odblokuj link' : `Oglądaj reklamę - ${timer} sekund`)}
+                <div style={styles.infoCard}>
+                    <h1 style={{ fontSize: isMobile ? '20px' : '24px', fontWeight: 'bold', marginBottom: '8px' }}>
+                        {linkData?.title || 'Przejdź do strony'}
+                    </h1>
+                    <p style={{ color: '#94a3b8', fontSize: isMobile ? '14px' : '16px' }}>
+                        {step === 1 && (adClicked ? '✓ Kliknij przycisk aby przejść dalej' : 'Krok 1/3 - Otwórz reklamę')}
+                        {step === 2 && (adClicked ? '✓ Kliknij przycisk aby przejść dalej' : 'Krok 2/3 - Kliknij w reklamę')}
+                        {step === 3 && (!adClicked ? 'Krok 3/3 - Kliknij reklamę' : timerDone ? '✓ Rozwiąż captcha' : `Oglądaj - ${timer}s`)}
                     </p>
                 </div>
 
                 {/* Błąd */}
                 {error && (
-                    <div style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef4444', borderRadius: '12px', padding: '16px', marginBottom: '24px', textAlign: 'center' }}>
-                        <p style={{ color: '#ef4444' }}>{error}</p>
+                    <div style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef4444', borderRadius: '12px', padding: '16px', marginBottom: '20px', textAlign: 'center' }}>
+                        <p style={{ color: '#ef4444', fontSize: '14px' }}>{error}</p>
                     </div>
                 )}
 
                 {/* KROK 1 */}
                 {step === 1 && (
-                    <div style={{ marginBottom: '32px' }}>
-                        <div style={{ 
-                            backgroundColor: adClicked ? 'rgba(34, 197, 94, 0.1)' : 'rgba(30, 41, 59, 0.3)',
-                            border: adClicked ? '2px solid #22c55e' : '2px solid #eab308',
-                            borderRadius: '16px', 
-                            padding: '32px', 
-                            marginBottom: '16px', 
-                            textAlign: 'center' 
-                        }}>
+                    <div style={{ marginBottom: '24px' }}>
+                        <div style={styles.adCard(adClicked)}>
                             {!adClicked ? (
                                 <>
-                                    <ExternalLink style={{ width: '64px', height: '64px', color: '#eab308', margin: '0 auto 16px' }} />
-                                    <p style={{ fontSize: '18px', fontWeight: 'bold', color: '#eab308', marginBottom: '16px' }}>
-                                        Kliknij przycisk poniżej aby otworzyć reklamę
+                                    <ExternalLink style={{ width: isMobile ? '48px' : '64px', height: isMobile ? '48px' : '64px', color: '#eab308', margin: '0 auto 16px' }} />
+                                    <p style={{ fontSize: isMobile ? '16px' : '18px', fontWeight: 'bold', color: '#eab308', marginBottom: '16px' }}>
+                                        Kliknij przycisk poniżej
                                     </p>
                                     <button
                                         onClick={handleDirectLinkClick}
-                                        style={{ backgroundColor: '#eab308', color: '#000000', padding: '16px 32px', borderRadius: '12px', fontWeight: 'bold', fontSize: '18px', border: 'none', cursor: 'pointer' }}
+                                        style={{ backgroundColor: '#eab308', color: '#000000', padding: isMobile ? '14px 24px' : '16px 32px', borderRadius: '12px', fontWeight: 'bold', fontSize: isMobile ? '16px' : '18px', border: 'none', cursor: 'pointer', width: isMobile ? '100%' : 'auto', minHeight: '48px' }}
                                     >
-                                        🔗 Otwórz reklamę w nowej karcie
+                                        🔗 Otwórz reklamę
                                     </button>
                                 </>
                             ) : (
@@ -468,24 +512,8 @@ function Unlock() {
                             )}
                         </div>
                         <div style={{ textAlign: 'center' }}>
-                            <button
-                                onClick={handleNextStep}
-                                disabled={!adClicked}
-                                style={{ 
-                                    display: 'inline-flex', 
-                                    alignItems: 'center', 
-                                    gap: '12px', 
-                                    padding: '16px 32px', 
-                                    borderRadius: '12px', 
-                                    fontWeight: 'bold', 
-                                    fontSize: '18px', 
-                                    border: 'none',
-                                    backgroundColor: adClicked ? '#0ea5e9' : '#334155',
-                                    color: adClicked ? '#ffffff' : '#94a3b8',
-                                    cursor: adClicked ? 'pointer' : 'not-allowed'
-                                }}
-                            >
-                                {adClicked ? (<>Kontynuuj do kroku 2 <CheckCircle style={{ width: '24px', height: '24px' }} /></>) : (<><MousePointer style={{ width: '24px', height: '24px' }} /> Najpierw otwórz reklamę</>)}
+                            <button onClick={handleNextStep} disabled={!adClicked} style={styles.button(adClicked)}>
+                                {adClicked ? (<>Kontynuuj <CheckCircle style={{ width: '20px', height: '20px' }} /></>) : (<><MousePointer style={{ width: '20px', height: '20px' }} /> Najpierw otwórz reklamę</>)}
                             </button>
                         </div>
                     </div>
@@ -493,20 +521,13 @@ function Unlock() {
 
                 {/* KROK 2 */}
                 {step === 2 && (
-                    <div style={{ marginBottom: '32px' }}>
-                        <div style={{ 
-                            backgroundColor: adClicked ? 'rgba(34, 197, 94, 0.1)' : 'rgba(30, 41, 59, 0.3)',
-                            border: adClicked ? '2px solid #22c55e' : '2px solid #eab308',
-                            borderRadius: '16px', 
-                            padding: '24px', 
-                            marginBottom: '16px',
-                            cursor: 'pointer'
-                        }}>
+                    <div style={{ marginBottom: '24px' }}>
+                        <div style={styles.adCard(adClicked)}>
                             {!adClicked && (
                                 <div style={{ textAlign: 'center', marginBottom: '16px' }}>
-                                    <p style={{ fontWeight: 'bold', color: '#eab308', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                    <p style={{ fontWeight: 'bold', color: '#eab308', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: isMobile ? '14px' : '16px' }}>
                                         <MousePointer style={{ width: '20px', height: '20px' }} />
-                                        Kliknij w reklamę aby kontynuować
+                                        Kliknij w reklamę
                                     </p>
                                 </div>
                             )}
@@ -521,24 +542,8 @@ function Unlock() {
                             <AdBanner step={2} onAdClick={handleAdClick} />
                         </div>
                         <div style={{ textAlign: 'center' }}>
-                            <button
-                                onClick={handleNextStep}
-                                disabled={!adClicked}
-                                style={{ 
-                                    display: 'inline-flex', 
-                                    alignItems: 'center', 
-                                    gap: '12px', 
-                                    padding: '16px 32px', 
-                                    borderRadius: '12px', 
-                                    fontWeight: 'bold', 
-                                    fontSize: '18px', 
-                                    border: 'none',
-                                    backgroundColor: adClicked ? '#0ea5e9' : '#334155',
-                                    color: adClicked ? '#ffffff' : '#94a3b8',
-                                    cursor: adClicked ? 'pointer' : 'not-allowed'
-                                }}
-                            >
-                                {adClicked ? (<>Kontynuuj do kroku 3 <CheckCircle style={{ width: '24px', height: '24px' }} /></>) : (<><MousePointer style={{ width: '24px', height: '24px' }} /> Najpierw kliknij reklamę</>)}
+                            <button onClick={handleNextStep} disabled={!adClicked} style={styles.button(adClicked)}>
+                                {adClicked ? (<>Kontynuuj <CheckCircle style={{ width: '20px', height: '20px' }} /></>) : (<><MousePointer style={{ width: '20px', height: '20px' }} /> Najpierw kliknij reklamę</>)}
                             </button>
                         </div>
                     </div>
@@ -546,20 +551,13 @@ function Unlock() {
 
                 {/* KROK 3 */}
                 {step === 3 && (
-                    <div style={{ marginBottom: '32px' }}>
-                        <div style={{ 
-                            backgroundColor: adClicked ? 'rgba(34, 197, 94, 0.1)' : 'rgba(30, 41, 59, 0.3)',
-                            border: adClicked ? '2px solid #22c55e' : '2px solid #eab308',
-                            borderRadius: '16px', 
-                            padding: '24px', 
-                            marginBottom: '24px',
-                            cursor: 'pointer'
-                        }}>
+                    <div style={{ marginBottom: '24px' }}>
+                        <div style={styles.adCard(adClicked)}>
                             {!adClicked && (
                                 <div style={{ textAlign: 'center', marginBottom: '16px' }}>
-                                    <p style={{ fontWeight: 'bold', color: '#eab308', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                    <p style={{ fontWeight: 'bold', color: '#eab308', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: isMobile ? '14px' : '16px' }}>
                                         <MousePointer style={{ width: '20px', height: '20px' }} />
-                                        Kliknij w reklamę aby rozpocząć timer
+                                        Kliknij reklamę aby rozpocząć timer
                                     </p>
                                 </div>
                             )}
@@ -575,7 +573,7 @@ function Unlock() {
                                 <div style={{ textAlign: 'center', marginBottom: '16px' }}>
                                     <p style={{ fontWeight: 'bold', color: '#22c55e', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                                         <CheckCircle style={{ width: '20px', height: '20px' }} />
-                                        Gotowe! Rozwiąż captcha poniżej.
+                                        Gotowe! Rozwiąż captcha.
                                     </p>
                                 </div>
                             )}
@@ -585,20 +583,21 @@ function Unlock() {
                         {/* Timer / Captcha / Unlock */}
                         <div style={{ textAlign: 'center' }}>
                             {!adClicked ? (
-                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '12px', backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '12px', padding: '16px 32px' }}>
-                                    <MousePointer style={{ width: '24px', height: '24px', color: '#eab308' }} />
-                                    <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#94a3b8' }}>Kliknij reklamę aby rozpocząć</span>
+                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '12px', backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '12px', padding: isMobile ? '12px 20px' : '16px 32px', width: isMobile ? '100%' : 'auto', justifyContent: 'center' }}>
+                                    <MousePointer style={{ width: '20px', height: '20px', color: '#eab308' }} />
+                                    <span style={{ fontSize: isMobile ? '14px' : '20px', fontWeight: 'bold', color: '#94a3b8' }}>Kliknij reklamę</span>
                                 </div>
                             ) : !timerDone ? (
-                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '12px', backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '12px', padding: '16px 32px' }}>
+                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '12px', backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '12px', padding: isMobile ? '12px 20px' : '16px 32px', width: isMobile ? '100%' : 'auto', justifyContent: 'center' }}>
                                     <Clock style={{ width: '24px', height: '24px', color: '#0ea5e9' }} />
-                                    <span style={{ fontSize: '20px', fontWeight: 'bold' }}>Poczekaj <span style={{ color: '#0ea5e9', fontSize: '28px' }}>{timer}</span> sekund</span>
+                                    <span style={{ fontSize: isMobile ? '16px' : '20px', fontWeight: 'bold' }}>
+                                        Poczekaj <span style={{ color: '#0ea5e9', fontSize: isMobile ? '24px' : '28px' }}>{timer}</span>s
+                                    </span>
                                 </div>
                             ) : (
                                 <div>
-                                    {/* Captcha */}
                                     {showCaptcha && (
-                                        <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'center' }}>
+                                        <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'center', transform: isMobile ? 'scale(0.9)' : 'none', transformOrigin: 'center' }}>
                                             <HCaptcha
                                                 ref={captchaRef}
                                                 sitekey={HCAPTCHA_SITE_KEY}
@@ -611,25 +610,12 @@ function Unlock() {
                                     <button
                                         onClick={handleUnlock}
                                         disabled={unlocking || (showCaptcha && !captchaToken)}
-                                        style={{ 
-                                            display: 'inline-flex', 
-                                            alignItems: 'center', 
-                                            gap: '12px', 
-                                            backgroundColor: (showCaptcha && !captchaToken) ? '#334155' : '#22c55e', 
-                                            color: '#ffffff', 
-                                            padding: '16px 32px', 
-                                            borderRadius: '12px', 
-                                            fontWeight: 'bold', 
-                                            fontSize: '18px', 
-                                            border: 'none', 
-                                            cursor: (unlocking || (showCaptcha && !captchaToken)) ? 'not-allowed' : 'pointer',
-                                            opacity: unlocking ? 0.7 : 1
-                                        }}
+                                        style={styles.unlockButton(!unlocking && (!showCaptcha || captchaToken))}
                                     >
                                         {unlocking ? (
                                             <><Loader2 className="animate-spin" style={{ width: '24px', height: '24px' }} /> Odblokowywanie...</>
                                         ) : (showCaptcha && !captchaToken) ? (
-                                            <><Shield style={{ width: '24px', height: '24px' }} /> Najpierw rozwiąż captcha</>
+                                            <><Shield style={{ width: '24px', height: '24px' }} /> Rozwiąż captcha</>
                                         ) : (
                                             <><CheckCircle style={{ width: '24px', height: '24px' }} /> Odblokuj link</>
                                         )}
@@ -640,8 +626,8 @@ function Unlock() {
                     </div>
                 )}
 
-                <p style={{ textAlign: 'center', fontSize: '14px', color: '#64748b', marginTop: '32px' }}>
-                    Reklamy pomagają twórcom zarabiać. Dziękujemy za wsparcie!
+                <p style={{ textAlign: 'center', fontSize: isMobile ? '12px' : '14px', color: '#64748b', marginTop: '24px' }}>
+                    Reklamy pomagają twórcom zarabiać. Dziękujemy! ❤️
                 </p>
             </main>
         </div>
