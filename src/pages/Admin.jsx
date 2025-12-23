@@ -290,9 +290,9 @@ function Admin() {
 
     const payoutStats = {
         pending: payouts.filter(p => p.status === 'PENDING').length,
-        pendingAmount: payouts.filter(p => p.status === 'PENDING').reduce((sum, p) => sum + (p.amount || 0), 0),
+        pendingAmount: payouts.filter(p => p.status === 'PENDING').reduce((sum, p) => sum + parseFloat(p.amount || 0), 0),
         completed: payouts.filter(p => p.status === 'COMPLETED').length,
-        completedAmount: payouts.filter(p => p.status === 'COMPLETED').reduce((sum, p) => sum + (p.amount || 0), 0)
+        completedAmount: payouts.filter(p => p.status === 'COMPLETED').reduce((sum, p) => sum + parseFloat(p.amount || 0), 0)
     };
 
     const formatDate = (date) => new Date(date).toLocaleString('pl-PL');
@@ -427,7 +427,7 @@ function Admin() {
                                     <DollarSign className="w-4 sm:w-5 h-4 sm:h-5 text-green-500" />
                                     <span className="text-slate-400 text-xs sm:text-sm">Zarobek</span>
                                 </div>
-                                <p className="text-xl sm:text-2xl font-bold text-green-500">${stats?.earnings?.platformTotal?.toFixed(2) || '0.00'}</p>
+                                <p className="text-xl sm:text-2xl font-bold text-green-500">${parseFloat(stats?.earnings?.platformTotal || 0).toFixed(2)}</p>
                             </div>
                         </div>
                         <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 sm:p-6">
@@ -472,7 +472,7 @@ function Admin() {
                                     </div>
                                     <div className="flex items-center justify-between">
                                         <div className="text-xs text-slate-400">
-                                            <span className="text-green-500">${user.balance.toFixed(2)}</span>
+                                            <span className="text-green-500">${parseFloat(user.balance || 0).toFixed(2)}</span>
                                             <span className="mx-2">•</span>
                                             <span>{user.linksCount} linków</span>
                                         </div>
@@ -511,7 +511,7 @@ function Admin() {
                                                     <span>{user.email}</span>
                                                 </div>
                                             </td>
-                                            <td className="p-4 text-green-500">${user.balance.toFixed(4)}</td>
+                                            <td className="p-4 text-green-500">${parseFloat(user.balance || 0).toFixed(4)}</td>
                                             <td className="p-4">{user.linksCount}</td>
                                             <td className="p-4">
                                                 <span className={`px-2 py-1 rounded text-xs ${user.isActive ? 'bg-green-900/50 text-green-400' : 'bg-red-900/50 text-red-400'}`}>
@@ -558,10 +558,10 @@ function Admin() {
                                         </button>
                                     </div>
                                     <div className="flex items-center justify-between text-xs">
-                                        <span className="text-slate-400">{link.userEmail}</span>
+                                        <span className="text-slate-400">{link.user?.email || 'N/A'}</span>
                                         <div className="flex items-center gap-3">
                                             <span>{link.totalClicks} klik.</span>
-                                            <span className="text-green-500">${link.totalEarned.toFixed(2)}</span>
+                                            <span className="text-green-500">${parseFloat(link.totalEarned || 0).toFixed(2)}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -585,9 +585,9 @@ function Admin() {
                                                 <p className="font-mono text-cyan-500">{link.shortCode}</p>
                                                 <p className="text-xs text-slate-400 truncate max-w-xs">{link.originalUrl}</p>
                                             </td>
-                                            <td className="p-4 text-sm">{link.userEmail}</td>
+                                            <td className="p-4 text-sm">{link.user?.email || 'N/A'}</td>
                                             <td className="p-4">{link.totalClicks}</td>
-                                            <td className="p-4 text-green-500">${link.totalEarned.toFixed(4)}</td>
+                                            <td className="p-4 text-green-500">${parseFloat(link.totalEarned || 0).toFixed(4)}</td>
                                             <td className="p-4">
                                                 <button onClick={() => deleteLink(link.id)} className="p-2 text-red-400 hover:bg-red-900/30 rounded-lg transition">
                                                     <Trash2 className="w-4 h-4" />
@@ -633,7 +633,7 @@ function Admin() {
                                     <DollarSign className="w-4 sm:w-5 h-4 sm:h-5 text-purple-500" />
                                     <span className="text-slate-400 text-xs sm:text-sm">Łącznie</span>
                                 </div>
-                                <p className="text-xl sm:text-2xl font-bold text-purple-500">${payouts.reduce((sum, p) => sum + (p.amount || 0), 0).toFixed(2)}</p>
+                                <p className="text-xl sm:text-2xl font-bold text-purple-500">${payouts.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0).toFixed(2)}</p>
                             </div>
                         </div>
                         <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
@@ -652,8 +652,8 @@ function Admin() {
                                             <div key={payout.id} className="p-4">
                                                 <div className="flex items-start justify-between mb-2">
                                                     <div>
-                                                        <p className="font-semibold text-green-500">${(payout.amount || 0).toFixed(2)}</p>
-                                                        <p className="text-xs text-slate-400">{payout.userEmail}</p>
+                                                        <p className="font-semibold text-green-500">${parseFloat(payout.amount || 0).toFixed(2)}</p>
+                                                        <p className="text-xs text-slate-400">{payout.user?.email || 'N/A'}</p>
                                                     </div>
                                                     {getPayoutStatusBadge(payout.status)}
                                                 </div>
@@ -693,8 +693,8 @@ function Admin() {
                                                 {payouts.map(payout => (
                                                     <tr key={payout.id} className="hover:bg-slate-700/30">
                                                         <td className="p-4 text-sm text-slate-400">{new Date(payout.createdAt).toLocaleDateString('pl-PL')}</td>
-                                                        <td className="p-4 text-sm">{payout.userEmail}</td>
-                                                        <td className="p-4 font-semibold text-green-500">${(payout.amount || 0).toFixed(2)}</td>
+                                                        <td className="p-4 text-sm">{payout.user?.email || 'N/A'}</td>
+                                                        <td className="p-4 font-semibold text-green-500">${parseFloat(payout.amount || 0).toFixed(2)}</td>
                                                         <td className="p-4 text-sm">{getMethodLabel(payout.method)}</td>
                                                         <td className="p-4">{getPayoutStatusBadge(payout.status)}</td>
                                                         <td className="p-4">
