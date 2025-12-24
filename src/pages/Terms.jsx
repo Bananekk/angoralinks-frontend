@@ -103,6 +103,8 @@ function Terms() {
                                 <li>Kliknięcia z tego samego IP są zliczane tylko raz na 24 godziny.</li>
                                 <li>W przypadku wykrycia nadużyć, konto może zostać zablokowane bez ostrzeżenia.</li>
                                 <li>Środki uzyskane w sposób nieuczciwy nie podlegają wypłacie.</li>
+                                <li>Zarząd strony nie odpowiada za treści publikowane przez użytkowników.</li>
+                            </ul>
                             </ul>
                         </div>
                     </section>
@@ -128,6 +130,7 @@ function Terms() {
                                 <li>Dane osobowe nie są sprzedawane osobom trzecim.</li>
                                 <li>Statystyki kliknięć są anonimizowane.</li>
                                 <li>Użytkownik może w każdej chwili usunąć swoje konto i dane.</li>
+                                <li>Korzystając z serwisu użytkownik zgadza się na udostępnienie swoich danych odpowiednim organom gdy będzie to konieczne.</li>
                             </ul>
                         </div>
                     </section>
