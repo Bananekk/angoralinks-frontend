@@ -11,7 +11,7 @@ import api from '../api/axios';
 const CONTACT_INFO = {
     email: 'angoralinx@gmail.com',
     discord: 'https://discord.gg/hd32mthG2R',
-    instagram: 'angoralinks'
+    instagram: 'angora.links'
 };
 
 function Contact() {
