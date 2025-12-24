@@ -105,7 +105,6 @@ function Terms() {
                                 <li>Środki uzyskane w sposób nieuczciwy nie podlegają wypłacie.</li>
                                 <li>Zarząd strony nie odpowiada za treści publikowane przez użytkowników.</li>
                             </ul>
-                            </ul>
                         </div>
                     </section>
 
