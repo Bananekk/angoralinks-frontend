@@ -5,6 +5,9 @@ import { Link2, Clock, CheckCircle, ExternalLink, Loader2, AlertCircle, Shield, 
 import HCaptcha from '@hcaptcha/react-hcaptcha';
 import AdBanner from '../components/AdBanner';
 
+// API URL - łatwa zmiana w przyszłości
+const API_URL = 'https://angoralinks-backend-production.up.railway.app';
+
 // Hook do wykrywania rozmiaru ekranu
 const useWindowSize = () => {
     const [windowSize, setWindowSize] = useState({
@@ -101,13 +104,14 @@ function Unlock() {
         detectAdBlock();
     };
 
+    // ✅ POPRAWIONE - pobieranie danych o linku
     useEffect(() => {
         const fetchLink = async () => {
             try {
-                const response = await fetch(`https://angoralinks-backend-production.up.railway.app/l/${shortCode}`);
+                const response = await fetch(`${API_URL}/l/info/${shortCode}`);
                 const data = await response.json();
-                if (!response.ok) throw new Error(data.error || 'Link nie istnieje');
-                setLinkData(data);
+                if (!response.ok) throw new Error(data.message || 'Link nie istnieje');
+                setLinkData(data.link);
             } catch (err) {
                 setError(err.message);
             } finally {
@@ -162,6 +166,7 @@ function Unlock() {
         setCaptchaToken(token);
     };
 
+    // ✅ POPRAWIONE - odblokowywanie linku
     const handleUnlock = async () => {
         if (!timerDone) return;
         
@@ -174,22 +179,25 @@ function Unlock() {
         setError(null);
 
         try {
-            const response = await fetch(`https://angoralinks-backend-production.up.railway.app/l/${shortCode}/unlock`, {
+            const response = await fetch(`${API_URL}/l/unlock/${shortCode}`, {
                 method: 'POST',
                 headers: { 
-                    'Content-Type': 'application/json',
-                    'X-Captcha-Token': captchaToken || ''
+                    'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ captchaToken })
+                body: JSON.stringify({ 
+                    hcaptchaToken: captchaToken,
+                    country: 'PL',
+                    device: /Mobile|Android|iPhone/i.test(navigator.userAgent) ? 'mobile' : 'desktop'
+                })
             });
             const data = await response.json();
             
             if (!response.ok) {
-                throw new Error(data.error || 'Błąd odblokowania');
+                throw new Error(data.message || 'Błąd odblokowania');
             }
             
-            setTargetUrl(data.url);
-            setTimeout(() => { window.location.href = data.url; }, 1500);
+            setTargetUrl(data.redirectUrl);
+            setTimeout(() => { window.location.href = data.redirectUrl; }, 1500);
         } catch (err) {
             setError(err.message);
             if (captchaRef.current) {
