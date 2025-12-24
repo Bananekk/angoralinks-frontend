@@ -2,5 +2,3 @@ User-agent: *
 Allow: /
 
 Sitemap: https://angoralinks.pl/sitemap.xml
-
->>>>>>> 1b2c26cd54244e6f4e2319d4b8864d73fa7c3c49
