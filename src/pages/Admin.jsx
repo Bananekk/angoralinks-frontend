@@ -1171,4 +1171,154 @@ function Admin() {
                                                     <span className="font-mono bg-yellow-900/50 text-yellow-400 px-2 py-0.5 rounded">
                                                         {searchResult.data.lastLoginIp || 'brak'}
                                                     </span>
-                                
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-slate-400">Ostatnie logowanie:</span>
+                                                    <span>{searchResult.data.lastLoginAt ? formatDate(searchResult.data.lastLoginAt) : 'nigdy'}</span>
+                                                </div>
+                                            </div>
+                                            <button
+                                                onClick={() => fetchIpHistory(searchResult.data.id)}
+                                                className="mt-4 w-full py-2 border border-cyan-500 text-cyan-500 rounded-lg hover:bg-cyan-500/10 transition flex items-center justify-center gap-2"
+                                            >
+                                                <History className="w-4 h-4" /> Pokaż historię logowań
+                                            </button>
+                                        </>
+                                    )}
+
+                                    {searchResult.type === 'visit' && (
+                                        <>
+                                            <h4 className="font-semibold mb-3 flex items-center gap-2">
+                                                <Eye className="w-4 h-4" /> Dane wizyty
+                                            </h4>
+                                            <div className="space-y-2 text-sm">
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-slate-400">IP:</span>
+                                                    <span className="font-mono bg-yellow-900/50 text-yellow-400 px-2 py-0.5 rounded">
+                                                        {searchResult.data.ip || 'brak'}
+                                                    </span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-slate-400">Kraj:</span>
+                                                    <span>{searchResult.data.country}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-slate-400">Urządzenie:</span>
+                                                    <span>{searchResult.data.device}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-slate-400">Link:</span>
+                                                    <span className="font-mono text-cyan-400">{searchResult.data.link?.shortCode}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-slate-400">Właściciel:</span>
+                                                    <span>{searchResult.data.link?.ownerEmail}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-slate-400">Zarobek:</span>
+                                                    <span className="text-green-400">${parseFloat(searchResult.data.earned || 0).toFixed(4)}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span className="text-slate-400">Data:</span>
+                                                    <span>{formatDate(searchResult.data.createdAt)}</span>
+                                                </div>
+                                            </div>
+                                        </>
+                                    )}
+
+                                    {searchResult.type === 'ip-search' && (
+                                        <>
+                                            <h4 className="font-semibold mb-3 flex items-center gap-2">
+                                                <MapPin className="w-4 h-4" /> 
+                                                Użytkownicy z IP: <span className="font-mono text-yellow-400">{searchResult.data.searchedIp}</span>
+                                            </h4>
+                                            {searchResult.data.results.length === 0 ? (
+                                                <p className="text-slate-400 text-center py-4">Nie znaleziono użytkowników</p>
+                                            ) : (
+                                                <div className="space-y-2">
+                                                    {searchResult.data.results.map(user => (
+                                                        <div key={user.id} className="bg-slate-600/50 rounded-lg p-3">
+                                                            <div className="flex items-center justify-between mb-1">
+                                                                <span className="font-semibold">{user.email}</span>
+                                                                <span className={`text-xs px-2 py-0.5 rounded ${
+                                                                    user.matchType === 'both' ? 'bg-green-900/50 text-green-400' :
+                                                                    user.matchType === 'registration' ? 'bg-blue-900/50 text-blue-400' :
+                                                                    'bg-yellow-900/50 text-yellow-400'
+                                                                }`}>
+                                                                    {user.matchType === 'both' ? 'Rej + Login' : user.matchType === 'registration' ? 'Rejestracja' : 'Login'}
+                                                                </span>
+                                                            </div>
+                                                            <div className="text-xs text-slate-400">
+                                                                <span className={user.isActive ? 'text-green-400' : 'text-red-400'}>
+                                                                    {user.isActive ? '● Aktywny' : '● Zablokowany'}
+                                                                </span>
+                                                                <span className="mx-2">•</span>
+                                                                <span>ID: {user.id.substring(0, 8)}...</span>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* IP History */}
+                            {ipHistory && (
+                                <div className="mt-4 p-4 bg-slate-700/50 rounded-lg">
+                                    <h4 className="font-semibold mb-3 flex items-center gap-2">
+                                        <History className="w-4 h-4" /> Historia logowań: {ipHistory.user.email}
+                                    </h4>
+                                    {ipHistory.logs.length === 0 ? (
+                                        <p className="text-slate-400 text-center py-4">Brak historii</p>
+                                    ) : (
+                                        <>
+                                            <div className="space-y-2">
+                                                {ipHistory.logs.map(log => (
+                                                    <div key={log.id} className="bg-slate-600/50 rounded-lg p-3 flex items-center justify-between gap-2">
+                                                        <div className="min-w-0">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className={`text-xs px-2 py-0.5 rounded ${log.action === 'LOGIN' ? 'bg-blue-900/50 text-blue-400' : 'bg-green-900/50 text-green-400'}`}>
+                                                                    {log.action}
+                                                                </span>
+                                                                <span className="font-mono text-yellow-400 text-sm">{log.ip}</span>
+                                                            </div>
+                                                            <p className="text-xs text-slate-400 mt-1 truncate">{log.userAgent || 'Brak User-Agent'}</p>
+                                                        </div>
+                                                        <span className="text-xs text-slate-400 flex-shrink-0">{formatDate(log.createdAt)}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            {ipHistory.pagination.totalPages > 1 && (
+                                                <div className="flex justify-center gap-2 mt-4">
+                                                    <button
+                                                        onClick={() => fetchIpHistory(ipHistory.user.id, historyPage - 1)}
+                                                        disabled={historyPage === 1}
+                                                        className="px-3 py-1 bg-slate-600 rounded disabled:opacity-50"
+                                                    >
+                                                        ←
+                                                    </button>
+                                                    <span className="px-3 py-1">{historyPage} / {ipHistory.pagination.totalPages}</span>
+                                                    <button
+                                                        onClick={() => fetchIpHistory(ipHistory.user.id, historyPage + 1)}
+                                                        disabled={historyPage === ipHistory.pagination.totalPages}
+                                                        className="px-3 py-1 bg-slate-600 rounded disabled:opacity-50"
+                                                    >
+                                                        →
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+            </main>
+        </div>
+    );
+}
+
+export default Admin;                                
