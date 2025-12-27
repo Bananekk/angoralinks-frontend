@@ -67,29 +67,43 @@ function Admin() {
     }, [activeTab]);
 
     const fetchData = async () => {
-        try {
-            const [statsRes, usersRes, linksRes, payoutsRes, messagesRes] = await Promise.all([
-                api.get('/admin/stats'),
-                api.get('/admin/users'),
-                api.get('/admin/links'),
-                api.get('/admin/payouts'),
-                api.get('/admin/messages')
-            ]);
-            setStats(statsRes.data);
-            setUsers(usersRes.data.users);
-            setLinks(linksRes.data.links);
-            setPayouts(payoutsRes.data.payouts || []);
-            setMessages(messagesRes.data.messages || []);
-            setUnreadCount(messagesRes.data.unreadCount || 0);
-        } catch (error) {
-            toast.error('Błąd pobierania danych');
-            if (error.response?.status === 403) {
-                navigate('/dashboard');
-            }
-        } finally {
-            setLoading(false);
+    try {
+        console.log('📡 Pobieram dane admina...');
+        
+        const [statsRes, usersRes, linksRes, payoutsRes, messagesRes] = await Promise.all([
+            api.get('/admin/stats'),
+            api.get('/admin/users'),
+            api.get('/admin/links'),
+            api.get('/admin/payouts'),
+            api.get('/admin/messages')
+        ]);
+        
+        // 🔥 DEBUG - sprawdź co przychodzi z API
+        console.log('📊 Stats:', statsRes.data);
+        console.log('👥 Users:', usersRes.data);
+        console.log('🔗 Links:', linksRes.data);
+        console.log('💰 Payouts:', payoutsRes.data);
+        console.log('💬 Messages:', messagesRes.data);
+        
+        setStats(statsRes.data);
+        setUsers(usersRes.data.users || usersRes.data || []);
+        setLinks(linksRes.data.links || linksRes.data || []);
+        setPayouts(payoutsRes.data.payouts || payoutsRes.data || []);
+        setMessages(messagesRes.data.messages || messagesRes.data || []);
+        setUnreadCount(messagesRes.data.unreadCount || 0);
+        
+        console.log('✅ Dane załadowane!');
+    } catch (error) {
+        console.error('❌ Błąd:', error);
+        console.error('❌ Response:', error.response?.data);
+        toast.error('Błąd pobierania danych');
+        if (error.response?.status === 403) {
+            navigate('/dashboard');
         }
-    };
+    } finally {
+        setLoading(false);
+    }
+};
 
     const fetchSecurityData = async () => {
         try {
