@@ -107,18 +107,74 @@ function Admin() {
         }
     };
 
-    const fetchSecurityData = async () => {
-        try {
-            const [statusRes, statsRes] = await Promise.all([
-                api.get('/admin/security/encryption-status'),
-                api.get('/admin/security/stats')
-            ]);
-            setEncryptionStatus(statusRes.data);
-            setSecurityStats(statsRes.data.stats);
-        } catch (error) {
-            console.error('Błąd pobierania danych bezpieczeństwa:', error);
-        }
-    };
+    // Security functions
+const decryptUserIp = async () => {
+    if (!searchId.trim()) {
+        toast.error('Wprowadź ID użytkownika');
+        return;
+    }
+    setSecurityLoading(true);
+    setSearchResult(null);
+    setIpHistory(null);
+    try {
+        const response = await api.post('/admin/decrypt-user-ip', { userId: searchId.trim() });
+        setSearchResult({ type: 'user', data: response.data.user });
+        toast.success('IP odszyfrowane');
+    } catch (error) {
+        toast.error(error.response?.data?.message || 'Nie znaleziono użytkownika');
+    } finally {
+        setSecurityLoading(false);
+    }
+};
+
+const decryptVisitIp = async () => {
+    if (!searchId.trim()) {
+        toast.error('Wprowadź ID wizyty');
+        return;
+    }
+    setSecurityLoading(true);
+    setSearchResult(null);
+    try {
+        const response = await api.post('/admin/decrypt-visit-ip', { visitId: searchId.trim() });
+        setSearchResult({ type: 'visit', data: response.data.visit });
+        toast.success('IP odszyfrowane');
+    } catch (error) {
+        toast.error(error.response?.data?.message || 'Nie znaleziono wizyty');
+    } finally {
+        setSecurityLoading(false);
+    }
+};
+
+const searchByIp = async () => {
+    if (!searchId.trim()) {
+        toast.error('Wprowadź adres IP');
+        return;
+    }
+    setSecurityLoading(true);
+    setSearchResult(null);
+    try {
+        const response = await api.post('/admin/search-by-ip', { ip: searchId.trim() });
+        setSearchResult({ type: 'ip-search', data: response.data });
+        toast.success(`Znaleziono ${response.data.count} użytkowników`);
+    } catch (error) {
+        toast.error(error.response?.data?.message || 'Błąd wyszukiwania');
+    } finally {
+        setSecurityLoading(false);
+    }
+};
+
+const fetchIpHistory = async (userId, page = 1) => {
+    setSecurityLoading(true);
+    try {
+        const response = await api.get(`/admin/user-ip-history/${userId}?page=${page}&limit=10`);
+        setIpHistory(response.data);
+        setHistoryPage(page);
+    } catch (error) {
+        toast.error('Nie udało się pobrać historii');
+    } finally {
+        setSecurityLoading(false);
+    }
+};
 
     // Adsterra refresh function
     const refreshAdsterraStats = async () => {
