@@ -1,4 +1,4 @@
-// Admin.jsx - PEŁNY PLIK Z ZAKŁADKĄ SECURITY
+// Admin.jsx - PEŁNY PLIK Z ZAKŁADKĄ SECURITY I ADSTERRA
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
@@ -6,7 +6,7 @@ import {
     ArrowLeft, Loader2, Trash2, UserX, UserCheck, Crown,
     TrendingUp, Calendar, Wallet, CheckCircle, XCircle, Clock, AlertCircle,
     Mail, MessageSquare, Eye, EyeOff, Menu, X, LogOut, Globe, User,
-    Search, Lock, Unlock, History, MapPin, RefreshCw
+    Search, Lock, Unlock, History, MapPin, RefreshCw, ExternalLink
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../api/axios';
@@ -23,6 +23,9 @@ function Admin() {
     const [unreadCount, setUnreadCount] = useState(0);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [currentUser, setCurrentUser] = useState(null);
+
+    // Adsterra state
+    const [refreshingAdsterra, setRefreshingAdsterra] = useState(false);
 
     // Security tab state
     const [securityLoading, setSecurityLoading] = useState(false);
@@ -67,43 +70,42 @@ function Admin() {
     }, [activeTab]);
 
     const fetchData = async () => {
-    try {
-        console.log('📡 Pobieram dane admina...');
-        
-        const [statsRes, usersRes, linksRes, payoutsRes, messagesRes] = await Promise.all([
-            api.get('/admin/stats'),
-            api.get('/admin/users'),
-            api.get('/admin/links'),
-            api.get('/admin/payouts'),
-            api.get('/admin/messages')
-        ]);
-        
-        // 🔥 DEBUG - sprawdź co przychodzi z API
-        console.log('📊 Stats:', statsRes.data);
-        console.log('👥 Users:', usersRes.data);
-        console.log('🔗 Links:', linksRes.data);
-        console.log('💰 Payouts:', payoutsRes.data);
-        console.log('💬 Messages:', messagesRes.data);
-        
-        setStats(statsRes.data);
-        setUsers(usersRes.data.users || usersRes.data || []);
-        setLinks(linksRes.data.links || linksRes.data || []);
-        setPayouts(payoutsRes.data.payouts || payoutsRes.data || []);
-        setMessages(messagesRes.data.messages || messagesRes.data || []);
-        setUnreadCount(messagesRes.data.unreadCount || 0);
-        
-        console.log('✅ Dane załadowane!');
-    } catch (error) {
-        console.error('❌ Błąd:', error);
-        console.error('❌ Response:', error.response?.data);
-        toast.error('Błąd pobierania danych');
-        if (error.response?.status === 403) {
-            navigate('/dashboard');
+        try {
+            console.log('📡 Pobieram dane admina...');
+            
+            const [statsRes, usersRes, linksRes, payoutsRes, messagesRes] = await Promise.all([
+                api.get('/admin/stats'),
+                api.get('/admin/users'),
+                api.get('/admin/links'),
+                api.get('/admin/payouts'),
+                api.get('/admin/messages')
+            ]);
+            
+            console.log('📊 Stats:', statsRes.data);
+            console.log('👥 Users:', usersRes.data);
+            console.log('🔗 Links:', linksRes.data);
+            console.log('💰 Payouts:', payoutsRes.data);
+            console.log('💬 Messages:', messagesRes.data);
+            
+            setStats(statsRes.data);
+            setUsers(usersRes.data.users || usersRes.data || []);
+            setLinks(linksRes.data.links || linksRes.data || []);
+            setPayouts(payoutsRes.data.payouts || payoutsRes.data || []);
+            setMessages(messagesRes.data.messages || messagesRes.data || []);
+            setUnreadCount(messagesRes.data.unreadCount || 0);
+            
+            console.log('✅ Dane załadowane!');
+        } catch (error) {
+            console.error('❌ Błąd:', error);
+            console.error('❌ Response:', error.response?.data);
+            toast.error('Błąd pobierania danych');
+            if (error.response?.status === 403) {
+                navigate('/dashboard');
+            }
+        } finally {
+            setLoading(false);
         }
-    } finally {
-        setLoading(false);
-    }
-};
+    };
 
     const fetchSecurityData = async () => {
         try {
@@ -115,6 +117,28 @@ function Admin() {
             setSecurityStats(statsRes.data.stats);
         } catch (error) {
             console.error('Błąd pobierania danych bezpieczeństwa:', error);
+        }
+    };
+
+    // Adsterra refresh function
+    const refreshAdsterraStats = async () => {
+        setRefreshingAdsterra(true);
+        try {
+            const response = await api.post('/admin/adsterra-stats/refresh');
+            
+            if (response.data.success) {
+                // Odśwież główne statystyki
+                const statsRes = await api.get('/admin/stats');
+                setStats(statsRes.data);
+                toast.success('Dane Adsterra odświeżone');
+            } else {
+                toast.error('Nie udało się odświeżyć danych Adsterra');
+            }
+        } catch (error) {
+            console.error('Błąd odświeżania Adsterra:', error);
+            toast.error('Błąd połączenia z Adsterra');
+        } finally {
+            setRefreshingAdsterra(false);
         }
     };
 
@@ -412,6 +436,7 @@ function Admin() {
                 {/* Tab: Statystyki */}
                 {activeTab === 'stats' && (
                     <div className="space-y-4 sm:space-y-8">
+                        {/* Główne statystyki */}
                         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                             <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 sm:p-6">
                                 <div className="flex items-center gap-2 sm:gap-3 mb-2">
@@ -439,28 +464,196 @@ function Admin() {
                             <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 sm:p-6">
                                 <div className="flex items-center gap-2 sm:gap-3 mb-2">
                                     <DollarSign className="w-4 sm:w-5 h-4 sm:h-5 text-green-500" />
-                                    <span className="text-slate-400 text-xs sm:text-sm">Zarobek</span>
+                                    <span className="text-slate-400 text-xs sm:text-sm">Wypłacono</span>
                                 </div>
                                 <p className="text-xl sm:text-2xl font-bold text-green-500">${parseFloat(stats?.earnings?.platformTotal || 0).toFixed(2)}</p>
                             </div>
                         </div>
+
+                        {/* Sekcja Adsterra */}
+                        <div className="bg-gradient-to-br from-orange-900/30 to-amber-900/30 border border-orange-700/50 rounded-xl p-4 sm:p-6">
+                            <div className="flex items-center justify-between mb-4 sm:mb-6">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-orange-500/20 rounded-lg flex items-center justify-center">
+                                        <Wallet className="w-5 h-5 text-orange-400" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-base sm:text-lg font-semibold text-white">Portfel Adsterra</h3>
+                                        <p className="text-xs sm:text-sm text-slate-400">
+                                            Zarobki z reklam
+                                            {stats?.adsterra?.fromCache && (
+                                                <span className="ml-2 text-yellow-500">(cache)</span>
+                                            )}
+                                        </p>
+                                    </div>
+                                </div>
+                                
+                                <div className="flex items-center gap-2">
+                                    {stats?.adsterra?.lastUpdated && (
+                                        <span className="text-xs text-slate-500 hidden sm:inline">
+                                            <Clock className="w-3 h-3 inline mr-1" />
+                                            {new Date(stats.adsterra.lastUpdated).toLocaleTimeString('pl-PL')}
+                                        </span>
+                                    )}
+                                    <button 
+                                        onClick={refreshAdsterraStats}
+                                        disabled={refreshingAdsterra}
+                                        className="p-2 bg-orange-500/20 hover:bg-orange-500/30 rounded-lg transition-colors disabled:opacity-50"
+                                        title="Odśwież dane"
+                                    >
+                                        <RefreshCw className={`w-4 h-4 text-orange-400 ${refreshingAdsterra ? 'animate-spin' : ''}`} />
+                                    </button>
+                                    <a 
+                                        href="https://publishers.adsterra.com/stats" 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="p-2 bg-orange-500/20 hover:bg-orange-500/30 rounded-lg transition-colors"
+                                        title="Otwórz panel Adsterra"
+                                    >
+                                        <ExternalLink className="w-4 h-4 text-orange-400" />
+                                    </a>
+                                </div>
+                            </div>
+
+                            {stats?.adsterra ? (
+                                <>
+                                    {/* Karty zarobków */}
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-6">
+                                        <div className="bg-slate-800/50 rounded-xl p-3 sm:p-4 border border-slate-700/50">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <Calendar className="w-4 h-4 text-orange-400" />
+                                                <span className="text-xs sm:text-sm text-slate-400">Dzisiaj</span>
+                                            </div>
+                                            <p className="text-xl sm:text-2xl font-bold text-orange-400">
+                                                ${(stats.adsterra.today || 0).toFixed(4)}
+                                            </p>
+                                        </div>
+                                        
+                                        <div className="bg-slate-800/50 rounded-xl p-3 sm:p-4 border border-slate-700/50">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <TrendingUp className="w-4 h-4 text-green-400" />
+                                                <span className="text-xs sm:text-sm text-slate-400">Ostatnie 7 dni</span>
+                                            </div>
+                                            <p className="text-xl sm:text-2xl font-bold text-green-400">
+                                                ${(stats.adsterra.last7Days || 0).toFixed(4)}
+                                            </p>
+                                        </div>
+                                        
+                                        <div className="bg-slate-800/50 rounded-xl p-3 sm:p-4 border border-slate-700/50">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <Wallet className="w-4 h-4 text-blue-400" />
+                                                <span className="text-xs sm:text-sm text-slate-400">Ten miesiąc</span>
+                                            </div>
+                                            <p className="text-xl sm:text-2xl font-bold text-blue-400">
+                                                ${(stats.adsterra.monthlyRevenue || 0).toFixed(4)}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* Mini wykres zarobków Adsterra */}
+                                    {stats.adsterra.dailyStats && stats.adsterra.dailyStats.length > 0 && (
+                                        <div className="bg-slate-800/30 rounded-xl p-3 sm:p-4">
+                                            <h4 className="text-xs sm:text-sm font-medium text-slate-400 mb-3">
+                                                Zarobki dzienne (ostatnie 7 dni)
+                                            </h4>
+                                            <div className="flex items-end justify-between gap-1 sm:gap-2 h-20 sm:h-24">
+                                                {stats.adsterra.dailyStats.map((day, index) => {
+                                                    const maxRevenue = Math.max(
+                                                        ...stats.adsterra.dailyStats.map(d => d.revenue || 0),
+                                                        0.0001
+                                                    );
+                                                    const height = ((day.revenue || 0) / maxRevenue) * 100;
+                                                    
+                                                    return (
+                                                        <div 
+                                                            key={index} 
+                                                            className="flex-1 flex flex-col items-center gap-1"
+                                                        >
+                                                            <div 
+                                                                className="w-full bg-orange-500/60 rounded-t-sm hover:bg-orange-500 transition-colors cursor-pointer relative group"
+                                                                style={{ height: `${Math.max(height, 4)}%` }}
+                                                            >
+                                                                {/* Tooltip */}
+                                                                <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 pointer-events-none">
+                                                                    ${(day.revenue || 0).toFixed(4)}
+                                                                </div>
+                                                            </div>
+                                                            <span className="text-[10px] text-slate-500">
+                                                                {new Date(day.date).toLocaleDateString('pl-PL', { 
+                                                                    weekday: 'short' 
+                                                                }).slice(0, 2)}
+                                                            </span>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+                                </>
+                            ) : (
+                                /* Brak danych z Adsterra */
+                                <div className="bg-slate-800/30 rounded-xl p-6 sm:p-8 text-center">
+                                    <AlertCircle className="w-10 sm:w-12 h-10 sm:h-12 text-orange-400/50 mx-auto mb-3" />
+                                    <p className="text-slate-400 mb-2 text-sm sm:text-base">
+                                        Nie można pobrać danych z Adsterra
+                                    </p>
+                                    <p className="text-xs sm:text-sm text-slate-500">
+                                        Sprawdź czy token API jest poprawnie skonfigurowany (ADSTERRA_API_TOKEN)
+                                    </p>
+                                    <button 
+                                        onClick={refreshAdsterraStats}
+                                        disabled={refreshingAdsterra}
+                                        className="mt-4 px-4 py-2 bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 rounded-lg transition-colors disabled:opacity-50 text-sm"
+                                    >
+                                        {refreshingAdsterra ? (
+                                            <><Loader2 className="w-4 h-4 inline mr-2 animate-spin" /> Sprawdzanie...</>
+                                        ) : (
+                                            <><RefreshCw className="w-4 h-4 inline mr-2" /> Spróbuj ponownie</>
+                                        )}
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Wykres wizyt - ostatnie 7 dni */}
                         <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 sm:p-6">
                             <h2 className="text-base sm:text-lg font-semibold mb-4 flex items-center gap-2">
                                 <TrendingUp className="w-4 sm:w-5 h-4 sm:h-5 text-cyan-500" />
-                                Ostatnie 7 dni
+                                Wizyty - ostatnie 7 dni
                             </h2>
                             <div className="flex items-end justify-between gap-1 sm:gap-2 h-32 sm:h-48 overflow-x-auto">
-                                {stats?.dailyStats?.map((day, index) => (
-                                    <div key={index} className="flex-1 min-w-[36px] flex flex-col items-center gap-1 sm:gap-2">
-                                        <div className="w-full bg-slate-700 rounded-t-lg relative" style={{ height: '80px' }}>
-                                            <div className="absolute bottom-0 w-full bg-cyan-500 rounded-t-lg transition-all duration-500" style={{ height: `${maxVisits > 0 ? (day.visits / maxVisits) * 100 : 0}%`, minHeight: day.visits > 0 ? '8px' : '0' }} />
+                                {stats?.dailyStats?.map((day, index) => {
+                                    // Znajdź zarobki Adsterra dla tego dnia
+                                    const adsterraDay = stats?.adsterra?.dailyStats?.find(
+                                        d => d.date === day.date
+                                    );
+                                    
+                                    return (
+                                        <div key={index} className="flex-1 min-w-[36px] flex flex-col items-center gap-1 sm:gap-2">
+                                            <div className="w-full bg-slate-700 rounded-t-lg relative" style={{ height: '100px' }}>
+                                                {/* Słupek wizyt */}
+                                                <div 
+                                                    className="absolute bottom-0 w-full bg-cyan-500 rounded-t-lg transition-all duration-500" 
+                                                    style={{ 
+                                                        height: `${maxVisits > 0 ? (day.visits / maxVisits) * 100 : 0}%`, 
+                                                        minHeight: day.visits > 0 ? '8px' : '0' 
+                                                    }} 
+                                                />
+                                            </div>
+                                            <div className="text-center">
+                                                <p className="text-[10px] sm:text-xs text-slate-400">
+                                                    {new Date(day.date).toLocaleDateString('pl-PL', { weekday: 'short' })}
+                                                </p>
+                                                <p className="text-xs sm:text-sm font-semibold">{day.visits}</p>
+                                                {adsterraDay && adsterraDay.revenue > 0 && (
+                                                    <p className="text-[10px] text-orange-400">
+                                                        ${adsterraDay.revenue.toFixed(2)}
+                                                    </p>
+                                                )}
+                                            </div>
                                         </div>
-                                        <div className="text-center">
-                                            <p className="text-[10px] sm:text-xs text-slate-400">{new Date(day.date).toLocaleDateString('pl-PL', { weekday: 'short' })}</p>
-                                            <p className="text-xs sm:text-sm font-semibold">{day.visits}</p>
-                                        </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </div>
                     </div>
@@ -978,154 +1171,4 @@ function Admin() {
                                                     <span className="font-mono bg-yellow-900/50 text-yellow-400 px-2 py-0.5 rounded">
                                                         {searchResult.data.lastLoginIp || 'brak'}
                                                     </span>
-                                                </div>
-                                                <div className="flex justify-between">
-                                                    <span className="text-slate-400">Ostatnie logowanie:</span>
-                                                    <span>{searchResult.data.lastLoginAt ? formatDate(searchResult.data.lastLoginAt) : 'nigdy'}</span>
-                                                </div>
-                                            </div>
-                                            <button
-                                                onClick={() => fetchIpHistory(searchResult.data.id)}
-                                                className="mt-4 w-full py-2 border border-cyan-500 text-cyan-500 rounded-lg hover:bg-cyan-500/10 transition flex items-center justify-center gap-2"
-                                            >
-                                                <History className="w-4 h-4" /> Pokaż historię logowań
-                                            </button>
-                                        </>
-                                    )}
-
-                                    {searchResult.type === 'visit' && (
-                                        <>
-                                            <h4 className="font-semibold mb-3 flex items-center gap-2">
-                                                <Eye className="w-4 h-4" /> Dane wizyty
-                                            </h4>
-                                            <div className="space-y-2 text-sm">
-                                                <div className="flex justify-between items-center">
-                                                    <span className="text-slate-400">IP:</span>
-                                                    <span className="font-mono bg-yellow-900/50 text-yellow-400 px-2 py-0.5 rounded">
-                                                        {searchResult.data.ip || 'brak'}
-                                                    </span>
-                                                </div>
-                                                <div className="flex justify-between">
-                                                    <span className="text-slate-400">Kraj:</span>
-                                                    <span>{searchResult.data.country}</span>
-                                                </div>
-                                                <div className="flex justify-between">
-                                                    <span className="text-slate-400">Urządzenie:</span>
-                                                    <span>{searchResult.data.device}</span>
-                                                </div>
-                                                <div className="flex justify-between">
-                                                    <span className="text-slate-400">Link:</span>
-                                                    <span className="font-mono text-cyan-400">{searchResult.data.link?.shortCode}</span>
-                                                </div>
-                                                <div className="flex justify-between">
-                                                    <span className="text-slate-400">Właściciel:</span>
-                                                    <span>{searchResult.data.link?.ownerEmail}</span>
-                                                </div>
-                                                <div className="flex justify-between">
-                                                    <span className="text-slate-400">Zarobek:</span>
-                                                    <span className="text-green-400">${parseFloat(searchResult.data.earned || 0).toFixed(4)}</span>
-                                                </div>
-                                                <div className="flex justify-between">
-                                                    <span className="text-slate-400">Data:</span>
-                                                    <span>{formatDate(searchResult.data.createdAt)}</span>
-                                                </div>
-                                            </div>
-                                        </>
-                                    )}
-
-                                    {searchResult.type === 'ip-search' && (
-                                        <>
-                                            <h4 className="font-semibold mb-3 flex items-center gap-2">
-                                                <MapPin className="w-4 h-4" /> 
-                                                Użytkownicy z IP: <span className="font-mono text-yellow-400">{searchResult.data.searchedIp}</span>
-                                            </h4>
-                                            {searchResult.data.results.length === 0 ? (
-                                                <p className="text-slate-400 text-center py-4">Nie znaleziono użytkowników</p>
-                                            ) : (
-                                                <div className="space-y-2">
-                                                    {searchResult.data.results.map(user => (
-                                                        <div key={user.id} className="bg-slate-600/50 rounded-lg p-3">
-                                                            <div className="flex items-center justify-between mb-1">
-                                                                <span className="font-semibold">{user.email}</span>
-                                                                <span className={`text-xs px-2 py-0.5 rounded ${
-                                                                    user.matchType === 'both' ? 'bg-green-900/50 text-green-400' :
-                                                                    user.matchType === 'registration' ? 'bg-blue-900/50 text-blue-400' :
-                                                                    'bg-yellow-900/50 text-yellow-400'
-                                                                }`}>
-                                                                    {user.matchType === 'both' ? 'Rej + Login' : user.matchType === 'registration' ? 'Rejestracja' : 'Login'}
-                                                                </span>
-                                                            </div>
-                                                            <div className="text-xs text-slate-400">
-                                                                <span className={user.isActive ? 'text-green-400' : 'text-red-400'}>
-                                                                    {user.isActive ? '● Aktywny' : '● Zablokowany'}
-                                                                </span>
-                                                                <span className="mx-2">•</span>
-                                                                <span>ID: {user.id.substring(0, 8)}...</span>
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </>
-                                    )}
-                                </div>
-                            )}
-
-                            {/* IP History */}
-                            {ipHistory && (
-                                <div className="mt-4 p-4 bg-slate-700/50 rounded-lg">
-                                    <h4 className="font-semibold mb-3 flex items-center gap-2">
-                                        <History className="w-4 h-4" /> Historia logowań: {ipHistory.user.email}
-                                    </h4>
-                                    {ipHistory.logs.length === 0 ? (
-                                        <p className="text-slate-400 text-center py-4">Brak historii</p>
-                                    ) : (
-                                        <>
-                                            <div className="space-y-2">
-                                                {ipHistory.logs.map(log => (
-                                                    <div key={log.id} className="bg-slate-600/50 rounded-lg p-3 flex items-center justify-between gap-2">
-                                                        <div className="min-w-0">
-                                                            <div className="flex items-center gap-2">
-                                                                <span className={`text-xs px-2 py-0.5 rounded ${log.action === 'LOGIN' ? 'bg-blue-900/50 text-blue-400' : 'bg-green-900/50 text-green-400'}`}>
-                                                                    {log.action}
-                                                                </span>
-                                                                <span className="font-mono text-yellow-400 text-sm">{log.ip}</span>
-                                                            </div>
-                                                            <p className="text-xs text-slate-400 mt-1 truncate">{log.userAgent || 'Brak User-Agent'}</p>
-                                                        </div>
-                                                        <span className="text-xs text-slate-400 flex-shrink-0">{formatDate(log.createdAt)}</span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                            {ipHistory.pagination.totalPages > 1 && (
-                                                <div className="flex justify-center gap-2 mt-4">
-                                                    <button
-                                                        onClick={() => fetchIpHistory(ipHistory.user.id, historyPage - 1)}
-                                                        disabled={historyPage === 1}
-                                                        className="px-3 py-1 bg-slate-600 rounded disabled:opacity-50"
-                                                    >
-                                                        ←
-                                                    </button>
-                                                    <span className="px-3 py-1">{historyPage} / {ipHistory.pagination.totalPages}</span>
-                                                    <button
-                                                        onClick={() => fetchIpHistory(ipHistory.user.id, historyPage + 1)}
-                                                        disabled={historyPage === ipHistory.pagination.totalPages}
-                                                        className="px-3 py-1 bg-slate-600 rounded disabled:opacity-50"
-                                                    >
-                                                        →
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                )}
-            </main>
-        </div>
-    );
-}
-
-export default Admin;
+                                
