@@ -1,9 +1,10 @@
-// Dashboard.jsx - RESPONSYWNY
+// Dashboard.jsx - RESPONSYWNY Z EDYCJĄ LINKÓW
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
     Link2, Plus, Copy, ExternalLink, Trash2, DollarSign, MousePointer, 
-    LogOut, Loader2, BarChart3, Shield, User, Wallet, Globe, Menu, X
+    LogOut, Loader2, BarChart3, Shield, User, Wallet, Globe, Menu, X,
+    Edit3, Check, AlertCircle
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../api/axios';
@@ -44,6 +45,18 @@ function Dashboard() {
     const [newLink, setNewLink] = useState({ url: '', title: '' });
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+    // 🆕 Stan dla edycji
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [editingLink, setEditingLink] = useState(null);
+    const [editForm, setEditForm] = useState({
+        originalUrl: '',
+        title: '',
+        description: '',
+        isActive: true
+    });
+    const [updating, setUpdating] = useState(false);
+    const [editErrors, setEditErrors] = useState({});
+
     useEffect(() => {
         const userData = localStorage.getItem('user');
         if (!userData) {
@@ -64,7 +77,7 @@ function Dashboard() {
 
     // Blokuj scroll gdy menu jest otwarte
     useEffect(() => {
-        if (mobileMenuOpen) {
+        if (mobileMenuOpen || showEditModal) {
             document.body.style.overflow = 'hidden';
         } else {
             document.body.style.overflow = 'unset';
@@ -72,7 +85,7 @@ function Dashboard() {
         return () => {
             document.body.style.overflow = 'unset';
         };
-    }, [mobileMenuOpen]);
+    }, [mobileMenuOpen, showEditModal]);
 
     const fetchUserData = async () => {
         try {
@@ -128,6 +141,95 @@ function Dashboard() {
         const frontendUrl = shortUrl.replace(':3000', ':5173');
         navigator.clipboard.writeText(frontendUrl);
         toast.success('Skopiowano do schowka!');
+    };
+
+    // 🆕 Funkcje edycji
+    const openEditModal = (link) => {
+        setEditingLink(link);
+        setEditForm({
+            originalUrl: link.originalUrl || '',
+            title: link.title || '',
+            description: link.description || '',
+            isActive: link.isActive !== false // domyślnie true
+        });
+        setEditErrors({});
+        setShowEditModal(true);
+    };
+
+    const closeEditModal = () => {
+        setShowEditModal(false);
+        setEditingLink(null);
+        setEditForm({
+            originalUrl: '',
+            title: '',
+            description: '',
+            isActive: true
+        });
+        setEditErrors({});
+    };
+
+    const validateEditForm = () => {
+        const errors = {};
+
+        // Walidacja URL
+        if (!editForm.originalUrl.trim()) {
+            errors.originalUrl = 'URL jest wymagany';
+        } else {
+            try {
+                const url = new URL(editForm.originalUrl);
+                if (!['http:', 'https:'].includes(url.protocol)) {
+                    errors.originalUrl = 'URL musi zaczynać się od http:// lub https://';
+                }
+            } catch {
+                errors.originalUrl = 'Nieprawidłowy format URL';
+            }
+        }
+
+        // Walidacja tytułu
+        if (editForm.title && editForm.title.length > 100) {
+            errors.title = 'Tytuł może mieć maksymalnie 100 znaków';
+        }
+
+        // Walidacja opisu
+        if (editForm.description && editForm.description.length > 500) {
+            errors.description = 'Opis może mieć maksymalnie 500 znaków';
+        }
+
+        setEditErrors(errors);
+        return Object.keys(errors).length === 0;
+    };
+
+    const handleEditSubmit = async (e) => {
+        e.preventDefault();
+
+        if (!validateEditForm()) {
+            return;
+        }
+
+        setUpdating(true);
+
+        try {
+            const response = await api.put(`/links/${editingLink.id}`, {
+                originalUrl: editForm.originalUrl.trim(),
+                title: editForm.title.trim() || null,
+                description: editForm.description.trim() || null,
+                isActive: editForm.isActive
+            });
+
+            // Zaktualizuj link w liście
+            setLinks(links.map(l => 
+                l.id === editingLink.id 
+                    ? { ...l, ...response.data.link }
+                    : l
+            ));
+
+            closeEditModal();
+            toast.success('Link zaktualizowany!');
+        } catch (error) {
+            toast.error(error.response?.data?.error || 'Błąd aktualizacji linka');
+        } finally {
+            setUpdating(false);
+        }
     };
 
     const handleLogoutClick = () => {
@@ -350,8 +452,8 @@ function Dashboard() {
             borderRadius: isMobile ? '16px 16px 0 0' : '16px',
             padding: isMobile ? '20px 16px 32px' : '24px',
             width: '100%',
-            maxWidth: isMobile ? '100%' : '400px',
-            maxHeight: isMobile ? '90vh' : 'auto',
+            maxWidth: isMobile ? '100%' : '500px',
+            maxHeight: isMobile ? '90vh' : '85vh',
             overflow: 'auto'
         },
         
@@ -380,6 +482,102 @@ function Dashboard() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center'
+        },
+
+        // 🆕 Style dla formularza edycji
+        inputGroup: {
+            marginBottom: '16px'
+        },
+        label: {
+            display: 'block',
+            fontSize: '14px',
+            fontWeight: '500',
+            color: '#cbd5e1',
+            marginBottom: '8px'
+        },
+        input: {
+            width: '100%',
+            backgroundColor: '#0f172a',
+            border: '1px solid #475569',
+            borderRadius: '8px',
+            padding: '14px 16px',
+            color: '#f8fafc',
+            fontSize: '16px',
+            boxSizing: 'border-box'
+        },
+        inputError: {
+            borderColor: '#ef4444'
+        },
+        textarea: {
+            width: '100%',
+            backgroundColor: '#0f172a',
+            border: '1px solid #475569',
+            borderRadius: '8px',
+            padding: '14px 16px',
+            color: '#f8fafc',
+            fontSize: '16px',
+            boxSizing: 'border-box',
+            minHeight: '100px',
+            resize: 'vertical',
+            fontFamily: 'inherit'
+        },
+        errorText: {
+            color: '#ef4444',
+            fontSize: '12px',
+            marginTop: '4px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px'
+        },
+        charCount: {
+            fontSize: '12px',
+            color: '#64748b',
+            textAlign: 'right',
+            marginTop: '4px'
+        },
+        toggleContainer: {
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '16px',
+            backgroundColor: '#0f172a',
+            borderRadius: '8px',
+            marginBottom: '16px'
+        },
+        toggle: {
+            position: 'relative',
+            width: '52px',
+            height: '28px',
+            cursor: 'pointer'
+        },
+        toggleTrack: (isActive) => ({
+            position: 'absolute',
+            inset: 0,
+            backgroundColor: isActive ? '#22c55e' : '#475569',
+            borderRadius: '14px',
+            transition: 'background-color 0.2s'
+        }),
+        toggleKnob: (isActive) => ({
+            position: 'absolute',
+            top: '2px',
+            left: isActive ? '26px' : '2px',
+            width: '24px',
+            height: '24px',
+            backgroundColor: '#ffffff',
+            borderRadius: '50%',
+            transition: 'left 0.2s',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+        }),
+        inactiveIndicator: {
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '4px',
+            padding: '2px 8px',
+            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+            color: '#ef4444',
+            fontSize: '12px',
+            borderRadius: '4px',
+            marginLeft: '8px'
         }
     };
 
@@ -663,20 +861,35 @@ function Dashboard() {
                     ) : (
                         <div>
                             {links.map((link) => (
-                                <div key={link.id} style={styles.linkItem}>
+                                <div 
+                                    key={link.id} 
+                                    style={{
+                                        ...styles.linkItem,
+                                        opacity: link.isActive === false ? 0.6 : 1
+                                    }}
+                                >
                                     <div style={styles.linkItemContent}>
                                         {/* Link Info */}
                                         <div style={{ flex: 1, minWidth: 0 }}>
-                                            <p style={{ 
-                                                fontWeight: '500', 
-                                                overflow: 'hidden', 
-                                                textOverflow: 'ellipsis', 
-                                                whiteSpace: 'nowrap', 
-                                                margin: 0,
-                                                fontSize: isMobile ? '15px' : '16px'
-                                            }}>
-                                                {link.title || link.originalUrl}
-                                            </p>
+                                            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
+                                                <p style={{ 
+                                                    fontWeight: '500', 
+                                                    overflow: 'hidden', 
+                                                    textOverflow: 'ellipsis', 
+                                                    whiteSpace: 'nowrap', 
+                                                    margin: 0,
+                                                    fontSize: isMobile ? '15px' : '16px'
+                                                }}>
+                                                    {link.title || link.originalUrl}
+                                                </p>
+                                                {/* 🆕 Indicator nieaktywnego linka */}
+                                                {link.isActive === false && (
+                                                    <span style={styles.inactiveIndicator}>
+                                                        <X style={{ width: '12px', height: '12px' }} />
+                                                        Nieaktywny
+                                                    </span>
+                                                )}
+                                            </div>
                                             <p style={{ 
                                                 fontSize: '13px', 
                                                 color: '#94a3b8', 
@@ -707,6 +920,14 @@ function Dashboard() {
                                                 </p>
                                             </div>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                {/* 🆕 Przycisk Edytuj */}
+                                                <button
+                                                    onClick={() => openEditModal(link)}
+                                                    style={{ ...styles.actionButton, color: '#0ea5e9' }}
+                                                    title="Edytuj"
+                                                >
+                                                    <Edit3 style={{ width: '18px', height: '18px' }} />
+                                                </button>
                                                 <button
                                                     onClick={() => copyLink(link.shortUrl)}
                                                     style={styles.actionButton}
@@ -847,6 +1068,213 @@ function Dashboard() {
                                         <Loader2 className="animate-spin" style={{ width: '20px', height: '20px' }} />
                                     ) : (
                                         'Utwórz'
+                                    )}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* 🆕 Edit Link Modal */}
+            {showEditModal && editingLink && (
+                <div 
+                    style={styles.modalOverlay}
+                    onClick={(e) => {
+                        if (e.target === e.currentTarget) closeEditModal();
+                    }}
+                >
+                    <div style={styles.modalContent}>
+                        {/* Mobile drag indicator */}
+                        {isMobile && (
+                            <div style={{ 
+                                width: '40px', 
+                                height: '4px', 
+                                backgroundColor: '#475569', 
+                                borderRadius: '2px', 
+                                margin: '0 auto 16px' 
+                            }} />
+                        )}
+                        
+                        {/* Header */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                            <h2 style={{ fontSize: '20px', fontWeight: '600', margin: 0 }}>Edytuj link</h2>
+                            <button
+                                onClick={closeEditModal}
+                                style={{ ...styles.actionButton, padding: '8px' }}
+                            >
+                                <X style={{ width: '20px', height: '20px' }} />
+                            </button>
+                        </div>
+
+                        {/* Short URL info */}
+                        <div style={{ 
+                            padding: '12px 16px', 
+                            backgroundColor: 'rgba(14, 165, 233, 0.1)', 
+                            borderRadius: '8px', 
+                            marginBottom: '20px' 
+                        }}>
+                            <p style={{ fontSize: '12px', color: '#94a3b8', margin: '0 0 4px 0' }}>Skrócony URL</p>
+                            <p style={{ fontSize: '14px', color: '#0ea5e9', margin: 0, fontWeight: '500' }}>
+                                {editingLink.shortUrl?.replace(':3000', ':5173')}
+                            </p>
+                        </div>
+
+                        <form onSubmit={handleEditSubmit}>
+                            {/* URL */}
+                            <div style={styles.inputGroup}>
+                                <label style={styles.label}>
+                                    Docelowy URL *
+                                </label>
+                                <input
+                                    type="url"
+                                    value={editForm.originalUrl}
+                                    onChange={(e) => {
+                                        setEditForm({ ...editForm, originalUrl: e.target.value });
+                                        if (editErrors.originalUrl) {
+                                            setEditErrors({ ...editErrors, originalUrl: null });
+                                        }
+                                    }}
+                                    style={{
+                                        ...styles.input,
+                                        ...(editErrors.originalUrl ? styles.inputError : {})
+                                    }}
+                                    placeholder="https://example.com/page"
+                                />
+                                {editErrors.originalUrl && (
+                                    <p style={styles.errorText}>
+                                        <AlertCircle style={{ width: '14px', height: '14px' }} />
+                                        {editErrors.originalUrl}
+                                    </p>
+                                )}
+                            </div>
+
+                            {/* Title */}
+                            <div style={styles.inputGroup}>
+                                <label style={styles.label}>
+                                    Tytuł (opcjonalnie)
+                                </label>
+                                <input
+                                    type="text"
+                                    value={editForm.title}
+                                    onChange={(e) => {
+                                        setEditForm({ ...editForm, title: e.target.value });
+                                        if (editErrors.title) {
+                                            setEditErrors({ ...editErrors, title: null });
+                                        }
+                                    }}
+                                    style={{
+                                        ...styles.input,
+                                        ...(editErrors.title ? styles.inputError : {})
+                                    }}
+                                    placeholder="Mój link"
+                                    maxLength={100}
+                                />
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    {editErrors.title ? (
+                                        <p style={styles.errorText}>
+                                            <AlertCircle style={{ width: '14px', height: '14px' }} />
+                                            {editErrors.title}
+                                        </p>
+                                    ) : <span />}
+                                    <p style={styles.charCount}>{editForm.title.length}/100</p>
+                                </div>
+                            </div>
+
+                            {/* Description */}
+                            <div style={styles.inputGroup}>
+                                <label style={styles.label}>
+                                    Opis (opcjonalnie)
+                                </label>
+                                <textarea
+                                    value={editForm.description}
+                                    onChange={(e) => {
+                                        setEditForm({ ...editForm, description: e.target.value });
+                                        if (editErrors.description) {
+                                            setEditErrors({ ...editErrors, description: null });
+                                        }
+                                    }}
+                                    style={{
+                                        ...styles.textarea,
+                                        ...(editErrors.description ? styles.inputError : {})
+                                    }}
+                                    placeholder="Opis linka..."
+                                    maxLength={500}
+                                />
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    {editErrors.description ? (
+                                        <p style={styles.errorText}>
+                                            <AlertCircle style={{ width: '14px', height: '14px' }} />
+                                            {editErrors.description}
+                                        </p>
+                                    ) : <span />}
+                                    <p style={styles.charCount}>{editForm.description.length}/500</p>
+                                </div>
+                            </div>
+
+                            {/* Active Toggle */}
+                            <div style={styles.toggleContainer}>
+                                <div>
+                                    <p style={{ margin: 0, fontWeight: '500', fontSize: '14px' }}>Status linka</p>
+                                    <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#94a3b8' }}>
+                                        {editForm.isActive ? 'Link jest aktywny i działa' : 'Link jest wyłączony'}
+                                    </p>
+                                </div>
+                                <div 
+                                    style={styles.toggle}
+                                    onClick={() => setEditForm({ ...editForm, isActive: !editForm.isActive })}
+                                >
+                                    <div style={styles.toggleTrack(editForm.isActive)} />
+                                    <div style={styles.toggleKnob(editForm.isActive)} />
+                                </div>
+                            </div>
+
+                            {/* Buttons */}
+                            <div style={{ display: 'flex', gap: '12px', flexDirection: isMobile ? 'column-reverse' : 'row', marginTop: '24px' }}>
+                                <button
+                                    type="button"
+                                    onClick={closeEditModal}
+                                    style={{
+                                        flex: 1,
+                                        backgroundColor: '#475569',
+                                        color: '#ffffff',
+                                        padding: '14px',
+                                        borderRadius: '8px',
+                                        border: 'none',
+                                        fontWeight: '500',
+                                        cursor: 'pointer',
+                                        minHeight: '48px'
+                                    }}
+                                >
+                                    Anuluj
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={updating}
+                                    style={{
+                                        flex: 1,
+                                        backgroundColor: '#22c55e',
+                                        color: '#ffffff',
+                                        padding: '14px',
+                                        borderRadius: '8px',
+                                        border: 'none',
+                                        fontWeight: '500',
+                                        cursor: updating ? 'not-allowed' : 'pointer',
+                                        opacity: updating ? 0.7 : 1,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '8px',
+                                        minHeight: '48px'
+                                    }}
+                                >
+                                    {updating ? (
+                                        <Loader2 className="animate-spin" style={{ width: '20px', height: '20px' }} />
+                                    ) : (
+                                        <>
+                                            <Check style={{ width: '18px', height: '18px' }} />
+                                            Zapisz zmiany
+                                        </>
                                     )}
                                 </button>
                             </div>
