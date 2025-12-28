@@ -1,4 +1,4 @@
-// Admin.jsx - KOMPLETNY DZIAŁAJĄCY PLIK
+// Admin.jsx - KOMPLETNY DZIAŁAJĄCY PLIK Z ZAKŁADKĄ CPM
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
@@ -6,7 +6,8 @@ import {
     ArrowLeft, Loader2, Trash2, UserX, UserCheck, Crown,
     TrendingUp, Calendar, Wallet, CheckCircle, XCircle, Clock, AlertCircle,
     Mail, MessageSquare, Eye, EyeOff, Menu, X, LogOut, Globe, User,
-    Search, Unlock, History, MapPin, RefreshCw, ExternalLink
+    Search, Unlock, History, MapPin, RefreshCw, ExternalLink, Edit2, Save,
+    ChevronDown, ChevronUp, Filter
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../api/axios';
@@ -26,6 +27,16 @@ function Admin() {
 
     // Adsterra state
     const [refreshingAdsterra, setRefreshingAdsterra] = useState(false);
+
+    // CPM Rates state
+    const [cpmRates, setCpmRates] = useState([]);
+    const [cpmConfig, setCpmConfig] = useState(null);
+    const [cpmLoading, setCpmLoading] = useState(false);
+    const [editingRate, setEditingRate] = useState(null);
+    const [editValue, setEditValue] = useState('');
+    const [cpmFilter, setCpmFilter] = useState({ tier: 0, search: '' });
+    const [earningsByCountry, setEarningsByCountry] = useState(null);
+    const [showEarningsStats, setShowEarningsStats] = useState(false);
 
     // Security tab state
     const [securityLoading, setSecurityLoading] = useState(false);
@@ -67,6 +78,9 @@ function Admin() {
         if (activeTab === 'security') {
             fetchSecurityData();
         }
+        if (activeTab === 'cpm') {
+            fetchCpmRates();
+        }
     }, [activeTab]);
 
     const fetchData = async () => {
@@ -102,6 +116,40 @@ function Admin() {
             setEncryptionStatus(statusRes.data);
         } catch (error) {
             console.error('Błąd pobierania danych bezpieczeństwa:', error);
+        }
+    };
+
+    const fetchCpmRates = async () => {
+        setCpmLoading(true);
+        try {
+            const [ratesRes, earningsRes] = await Promise.all([
+                api.get('/admin/cpm-rates'),
+                api.get('/admin/earnings-by-country?days=30').catch(() => ({ data: null }))
+            ]);
+            
+            setCpmRates(ratesRes.data.rates || []);
+            setCpmConfig(ratesRes.data.config || null);
+            setEarningsByCountry(earningsRes.data || null);
+        } catch (error) {
+            console.error('Błąd pobierania stawek CPM:', error);
+            toast.error('Błąd pobierania stawek CPM');
+        } finally {
+            setCpmLoading(false);
+        }
+    };
+
+    const updateCpmRate = async (countryCode, newBaseCpm) => {
+        try {
+            await api.put(`/admin/cpm-rates/${countryCode}`, { 
+                baseCpm: parseFloat(newBaseCpm) 
+            });
+            toast.success(`Stawka dla ${countryCode} zaktualizowana`);
+            setEditingRate(null);
+            setEditValue('');
+            fetchCpmRates();
+        } catch (error) {
+            console.error('Błąd aktualizacji:', error);
+            toast.error('Błąd aktualizacji stawki');
         }
     };
 
@@ -303,6 +351,19 @@ function Admin() {
         return methods[method] || method;
     };
 
+    const getTierBadge = (tier) => {
+        const styles = {
+            1: 'bg-green-900/50 text-green-400 border-green-700',
+            2: 'bg-yellow-900/50 text-yellow-400 border-yellow-700',
+            3: 'bg-red-900/50 text-red-400 border-red-700'
+        };
+        return (
+            <span className={`px-2 py-0.5 rounded text-xs border ${styles[tier] || styles[3]}`}>
+                Tier {tier}
+            </span>
+        );
+    };
+
     const payoutStats = {
         pending: payouts.filter(p => p.status === 'PENDING').length,
         pendingAmount: payouts.filter(p => p.status === 'PENDING').reduce((sum, p) => sum + parseFloat(p.amount || 0), 0),
@@ -311,6 +372,17 @@ function Admin() {
     };
 
     const formatDate = (date) => new Date(date).toLocaleString('pl-PL');
+
+    // Filtrowanie stawek CPM
+    const filteredCpmRates = cpmRates.filter(rate => {
+        if (cpmFilter.tier && rate.tier !== cpmFilter.tier) return false;
+        if (cpmFilter.search) {
+            const search = cpmFilter.search.toLowerCase();
+            return rate.countryCode.toLowerCase().includes(search) || 
+                   rate.countryName.toLowerCase().includes(search);
+        }
+        return true;
+    });
 
     if (loading) {
         return (
@@ -328,6 +400,7 @@ function Admin() {
         { id: 'links', label: 'Linki', icon: Link2 },
         { id: 'payouts', label: 'Wypłaty', icon: Wallet, badge: payoutStats.pending },
         { id: 'messages', label: 'Wiadomości', icon: MessageSquare, badge: unreadCount },
+        { id: 'cpm', label: 'Stawki CPM', icon: DollarSign },
         { id: 'security', label: 'Bezpieczeństwo', icon: Shield }
     ];
 
@@ -701,6 +774,219 @@ function Admin() {
                                 ))}
                             </div>
                         )}
+                    </div>
+                )}
+
+                {/* Tab: Stawki CPM */}
+                {activeTab === 'cpm' && (
+                    <div className="space-y-6">
+                        {/* Konfiguracja systemu */}
+                        {cpmConfig && (
+                            <div className="bg-gradient-to-br from-cyan-900/30 to-blue-900/30 border border-cyan-700/50 rounded-xl p-4 sm:p-6">
+                                <h3 className="font-semibold text-white mb-4 flex items-center gap-2">
+                                    <DollarSign className="w-5 h-5 text-cyan-400" />
+                                    Konfiguracja systemu zarobków
+                                </h3>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                    <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
+                                        <p className="text-xs text-slate-400 mb-1">Udział użytkownika</p>
+                                        <p className="text-2xl font-bold text-green-400">{(cpmConfig.userShare * 100).toFixed(0)}%</p>
+                                    </div>
+                                    <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
+                                        <p className="text-xs text-slate-400 mb-1">Udział platformy</p>
+                                        <p className="text-2xl font-bold text-orange-400">{(cpmConfig.platformShare * 100).toFixed(0)}%</p>
+                                    </div>
+                                    <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
+                                        <p className="text-xs text-slate-400 mb-1">Min. wypłata</p>
+                                        <p className="text-2xl font-bold text-cyan-400">${cpmConfig.minPayout}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Statystyki zarobków per kraj */}
+                        {earningsByCountry && (
+                            <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
+                                <button 
+                                    onClick={() => setShowEarningsStats(!showEarningsStats)}
+                                    className="w-full p-4 flex items-center justify-between hover:bg-slate-700/30 transition"
+                                >
+                                    <h3 className="font-semibold flex items-center gap-2">
+                                        <TrendingUp className="w-5 h-5 text-green-500" />
+                                        Zarobki per kraj (30 dni)
+                                    </h3>
+                                    {showEarningsStats ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                                </button>
+                                
+                                {showEarningsStats && (
+                                    <div className="border-t border-slate-700">
+                                        {/* Totals */}
+                                        <div className="p-4 bg-slate-700/30 grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                            <div>
+                                                <p className="text-xs text-slate-400">Wizyty</p>
+                                                <p className="text-lg font-bold">{earningsByCountry.totals?.totalVisits || 0}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-xs text-slate-400">Unikalne</p>
+                                                <p className="text-lg font-bold">{earningsByCountry.totals?.uniqueVisits || 0}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-xs text-slate-400">Dla użytkowników</p>
+                                                <p className="text-lg font-bold text-green-400">${(earningsByCountry.totals?.userEarnings || 0).toFixed(4)}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-xs text-slate-400">Dla platformy</p>
+                                                <p className="text-lg font-bold text-orange-400">${(earningsByCountry.totals?.platformEarnings || 0).toFixed(4)}</p>
+                                            </div>
+                                        </div>
+                                        
+                                        {/* Countries list */}
+                                        <div className="max-h-64 overflow-y-auto divide-y divide-slate-700">
+                                            {earningsByCountry.countries?.slice(0, 10).map(country => (
+                                                <div key={country.country} className="p-3 flex items-center justify-between">
+                                                    <div className="flex items-center gap-3">
+                                                        <span className="text-lg">{country.country}</span>
+                                                        <span className="text-slate-400 text-sm">{country.countryName}</span>
+                                                        {getTierBadge(country.tier)}
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className="text-green-400 font-mono">${country.userEarnings.toFixed(4)}</p>
+                                                        <p className="text-xs text-slate-400">{country.uniqueVisits} wizyt</p>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Filtry i tabela stawek */}
+                        <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
+                            <div className="p-4 border-b border-slate-700">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                    <h2 className="font-semibold flex items-center gap-2">
+                                        <Globe className="w-5 h-5 text-cyan-500" />
+                                        Stawki CPM ({filteredCpmRates.length})
+                                    </h2>
+                                    <div className="flex gap-2">
+                                        <select
+                                            value={cpmFilter.tier}
+                                            onChange={(e) => setCpmFilter({...cpmFilter, tier: parseInt(e.target.value)})}
+                                            className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
+                                        >
+                                            <option value={0}>Wszystkie Tiery</option>
+                                            <option value={1}>Tier 1</option>
+                                            <option value={2}>Tier 2</option>
+                                            <option value={3}>Tier 3</option>
+                                        </select>
+                                        <input
+                                            type="text"
+                                            placeholder="Szukaj kraju..."
+                                            value={cpmFilter.search}
+                                            onChange={(e) => setCpmFilter({...cpmFilter, search: e.target.value})}
+                                            className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm w-40"
+                                        />
+                                        <button 
+                                            onClick={fetchCpmRates}
+                                            disabled={cpmLoading}
+                                            className="p-2 bg-cyan-500/20 hover:bg-cyan-500/30 rounded-lg transition"
+                                        >
+                                            <RefreshCw className={`w-4 h-4 text-cyan-400 ${cpmLoading ? 'animate-spin' : ''}`} />
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {cpmLoading ? (
+                                <div className="p-12 text-center">
+                                    <Loader2 className="w-8 h-8 animate-spin text-cyan-500 mx-auto" />
+                                </div>
+                            ) : (
+                                <div className="overflow-x-auto">
+                                    <table className="w-full">
+                                        <thead className="bg-slate-700/50 text-xs text-slate-400">
+                                            <tr>
+                                                <th className="px-4 py-3 text-left">Kraj</th>
+                                                <th className="px-4 py-3 text-left">Tier</th>
+                                                <th className="px-4 py-3 text-right">Bazowy CPM</th>
+                                                <th className="px-4 py-3 text-right">CPM użytkownika</th>
+                                                <th className="px-4 py-3 text-right">Za wizytę</th>
+                                                <th className="px-4 py-3 text-center">Źródło</th>
+                                                <th className="px-4 py-3 text-center">Akcje</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-700">
+                                            {filteredCpmRates.map(rate => (
+                                                <tr key={rate.countryCode} className="hover:bg-slate-700/30">
+                                                    <td className="px-4 py-3">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="font-bold text-cyan-400">{rate.countryCode}</span>
+                                                            <span className="text-slate-400 text-sm hidden sm:inline">{rate.countryName}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-4 py-3">
+                                                        {getTierBadge(rate.tier)}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right font-mono">
+                                                        {editingRate === rate.countryCode ? (
+                                                            <input
+                                                                type="number"
+                                                                step="0.01"
+                                                                value={editValue}
+                                                                onChange={(e) => setEditValue(e.target.value)}
+                                                                className="w-20 bg-slate-600 border border-cyan-500 rounded px-2 py-1 text-right text-sm"
+                                                                autoFocus
+                                                            />
+                                                        ) : (
+                                                            <span className="text-white">${rate.baseCpm.toFixed(2)}</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right font-mono text-green-400">
+                                                        ${rate.userCpm.toFixed(2)}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right font-mono text-slate-400 text-sm">
+                                                        ${rate.perVisit.toFixed(6)}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-center">
+                                                        <span className={`text-xs px-2 py-0.5 rounded ${
+                                                            rate.source === 'database' ? 'bg-green-900/50 text-green-400' : 'bg-slate-700 text-slate-400'
+                                                        }`}>
+                                                            {rate.source === 'database' ? 'DB' : 'Config'}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-center">
+                                                        {editingRate === rate.countryCode ? (
+                                                            <div className="flex items-center justify-center gap-1">
+                                                                <button
+                                                                    onClick={() => updateCpmRate(rate.countryCode, editValue)}
+                                                                    className="p-1 text-green-400 hover:bg-green-900/30 rounded"
+                                                                >
+                                                                    <Save className="w-4 h-4" />
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => { setEditingRate(null); setEditValue(''); }}
+                                                                    className="p-1 text-red-400 hover:bg-red-900/30 rounded"
+                                                                >
+                                                                    <X className="w-4 h-4" />
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            <button
+                                                                onClick={() => { setEditingRate(rate.countryCode); setEditValue(rate.baseCpm.toString()); }}
+                                                                className="p-1 text-cyan-400 hover:bg-cyan-900/30 rounded"
+                                                            >
+                                                                <Edit2 className="w-4 h-4" />
+                                                            </button>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 )}
 
