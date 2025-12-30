@@ -1,4 +1,4 @@
-// Admin.jsx - KOMPLETNY DZIAŁAJĄCY PLIK Z ZAKŁADKĄ CPM
+// Admin.jsx - KOMPLETNY Z ZAKŁADKĄ REFERALI
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
@@ -7,7 +7,7 @@ import {
     TrendingUp, Calendar, Wallet, CheckCircle, XCircle, Clock, AlertCircle,
     Mail, MessageSquare, Eye, EyeOff, Menu, X, LogOut, Globe, User,
     Search, Unlock, History, MapPin, RefreshCw, ExternalLink, Edit2, Save,
-    ChevronDown, ChevronUp, Filter
+    ChevronDown, ChevronUp, Filter, Gift, Percent, ToggleLeft, ToggleRight
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../api/axios';
@@ -48,6 +48,23 @@ function Admin() {
     const [ipHistory, setIpHistory] = useState(null);
     const [historyPage, setHistoryPage] = useState(1);
 
+    // 🆕 Referral tab state
+    const [referralStats, setReferralStats] = useState(null);
+    const [referralLoading, setReferralLoading] = useState(false);
+    const [referralSettings, setReferralSettings] = useState({
+        commissionRate: 10,
+        bonusDuration: null,
+        minPayout: 5,
+        isActive: true
+    });
+    const [editingReferralSettings, setEditingReferralSettings] = useState(false);
+    const [savingReferralSettings, setSavingReferralSettings] = useState(false);
+    const [allReferrals, setAllReferrals] = useState([]);
+    const [referralSearch, setReferralSearch] = useState('');
+    const [referralPage, setReferralPage] = useState(1);
+    const [referralPagination, setReferralPagination] = useState(null);
+    const [showReferralsList, setShowReferralsList] = useState(false);
+
     useEffect(() => {
         const user = JSON.parse(localStorage.getItem('user') || '{}');
         if (!user.isAdmin) {
@@ -80,6 +97,9 @@ function Admin() {
         }
         if (activeTab === 'cpm') {
             fetchCpmRates();
+        }
+        if (activeTab === 'referrals') {
+            fetchReferralData();
         }
     }, [activeTab]);
 
@@ -135,6 +155,60 @@ function Admin() {
             toast.error('Błąd pobierania stawek CPM');
         } finally {
             setCpmLoading(false);
+        }
+    };
+
+    // 🆕 Fetch referral data
+    const fetchReferralData = async () => {
+        setReferralLoading(true);
+        try {
+            const statsRes = await api.get('/referrals/admin/stats');
+            setReferralStats(statsRes.data);
+            setReferralSettings({
+                commissionRate: statsRes.data.settings.commissionRate,
+                bonusDuration: statsRes.data.settings.bonusDuration,
+                minPayout: statsRes.data.settings.minPayout,
+                isActive: statsRes.data.settings.isActive
+            });
+        } catch (error) {
+            console.error('Błąd pobierania danych referali:', error);
+            toast.error('Błąd pobierania danych referali');
+        } finally {
+            setReferralLoading(false);
+        }
+    };
+
+    // 🆕 Fetch all referrals list
+    const fetchAllReferrals = async (page = 1, search = '') => {
+        try {
+            const res = await api.get(`/referrals/admin/all?page=${page}&limit=20&search=${search}`);
+            setAllReferrals(res.data.referrals || []);
+            setReferralPagination(res.data.pagination || null);
+            setReferralPage(page);
+        } catch (error) {
+            console.error('Błąd pobierania listy referali:', error);
+            toast.error('Błąd pobierania listy referali');
+        }
+    };
+
+    // 🆕 Save referral settings
+    const saveReferralSettings = async () => {
+        setSavingReferralSettings(true);
+        try {
+            await api.put('/referrals/admin/settings', {
+                commissionRate: referralSettings.commissionRate,
+                bonusDuration: referralSettings.bonusDuration,
+                minPayout: referralSettings.minPayout,
+                isActive: referralSettings.isActive
+            });
+            toast.success('Ustawienia zapisane');
+            setEditingReferralSettings(false);
+            fetchReferralData();
+        } catch (error) {
+            console.error('Błąd zapisywania ustawień:', error);
+            toast.error(error.response?.data?.error || 'Błąd zapisywania ustawień');
+        } finally {
+            setSavingReferralSettings(false);
         }
     };
 
@@ -384,6 +458,9 @@ function Admin() {
         return true;
     });
 
+    // 🆕 Oblicz liczbę zaproszonych użytkowników
+    const invitedUsersCount = referralStats?.overview?.totalReferrals || 0;
+
     if (loading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-slate-900">
@@ -401,6 +478,7 @@ function Admin() {
         { id: 'payouts', label: 'Wypłaty', icon: Wallet, badge: payoutStats.pending },
         { id: 'messages', label: 'Wiadomości', icon: MessageSquare, badge: unreadCount },
         { id: 'cpm', label: 'Stawki CPM', icon: DollarSign },
+        { id: 'referrals', label: 'Referale', icon: Gift },
         { id: 'security', label: 'Bezpieczeństwo', icon: Shield }
     ];
 
@@ -479,7 +557,7 @@ function Admin() {
                 {activeTab === 'stats' && (
                     <div className="space-y-6">
                         {/* Główne statystyki */}
-                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
                             <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 sm:p-6">
                                 <div className="flex items-center gap-2 mb-2">
                                     <Users className="w-4 sm:w-5 h-4 sm:h-5 text-blue-500" />
@@ -509,6 +587,15 @@ function Admin() {
                                     <span className="text-slate-400 text-xs sm:text-sm">Wypłacono</span>
                                 </div>
                                 <p className="text-xl sm:text-2xl font-bold text-green-500">${parseFloat(stats?.earnings?.platformTotal || 0).toFixed(2)}</p>
+                            </div>
+                            {/* 🆕 Zaproszeni użytkownicy */}
+                            <div className="bg-gradient-to-br from-purple-900/30 to-pink-900/30 border border-purple-700/50 rounded-xl p-4 sm:p-6">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <Gift className="w-4 sm:w-5 h-4 sm:h-5 text-purple-400" />
+                                    <span className="text-slate-400 text-xs sm:text-sm">Zaproszeni</span>
+                                </div>
+                                <p className="text-xl sm:text-2xl font-bold text-purple-400">{invitedUsersCount}</p>
+                                <p className="text-xs text-purple-400/70">przez referale</p>
                             </div>
                         </div>
 
@@ -987,6 +1074,424 @@ function Admin() {
                                 </div>
                             )}
                         </div>
+                    </div>
+                )}
+
+                {/* 🆕 Tab: Referale */}
+                {activeTab === 'referrals' && (
+                    <div className="space-y-6">
+                        {referralLoading ? (
+                            <div className="flex items-center justify-center py-12">
+                                <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
+                            </div>
+                        ) : (
+                            <>
+                                {/* Statystyki główne */}
+                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                                    <div className="bg-gradient-to-br from-purple-900/30 to-pink-900/30 border border-purple-700/50 rounded-xl p-4 sm:p-6">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <Users className="w-4 sm:w-5 h-4 sm:h-5 text-purple-400" />
+                                            <span className="text-slate-400 text-xs sm:text-sm">Zaproszeni</span>
+                                        </div>
+                                        <p className="text-xl sm:text-2xl font-bold text-purple-400">
+                                            {referralStats?.overview?.totalReferrals || 0}
+                                        </p>
+                                    </div>
+                                    <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 sm:p-6">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <Gift className="w-4 sm:w-5 h-4 sm:h-5 text-cyan-500" />
+                                            <span className="text-slate-400 text-xs sm:text-sm">Polecający</span>
+                                        </div>
+                                        <p className="text-xl sm:text-2xl font-bold">
+                                            {referralStats?.overview?.activeReferrers || 0}
+                                        </p>
+                                    </div>
+                                    <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 sm:p-6">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <DollarSign className="w-4 sm:w-5 h-4 sm:h-5 text-green-500" />
+                                            <span className="text-slate-400 text-xs sm:text-sm">Wypłacono prowizji</span>
+                                        </div>
+                                        <p className="text-xl sm:text-2xl font-bold text-green-500">
+                                            ${(referralStats?.overview?.totalCommissionsAmount || 0).toFixed(4)}
+                                        </p>
+                                    </div>
+                                    <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 sm:p-6">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <TrendingUp className="w-4 sm:w-5 h-4 sm:h-5 text-yellow-500" />
+                                            <span className="text-slate-400 text-xs sm:text-sm">Łącznie prowizji</span>
+                                        </div>
+                                        <p className="text-xl sm:text-2xl font-bold">
+                                            {referralStats?.overview?.totalCommissions || 0}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* Ustawienia systemu */}
+                                <div className="bg-gradient-to-br from-purple-900/30 to-pink-900/30 border border-purple-700/50 rounded-xl p-4 sm:p-6">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h3 className="font-semibold text-white flex items-center gap-2">
+                                            <Percent className="w-5 h-5 text-purple-400" />
+                                            Ustawienia systemu referali
+                                        </h3>
+                                        {!editingReferralSettings ? (
+                                            <button
+                                                onClick={() => setEditingReferralSettings(true)}
+                                                className="px-3 py-1.5 bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 rounded-lg text-sm flex items-center gap-2"
+                                            >
+                                                <Edit2 className="w-4 h-4" />
+                                                Edytuj
+                                            </button>
+                                        ) : (
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    onClick={() => setEditingReferralSettings(false)}
+                                                    className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-sm"
+                                                >
+                                                    Anuluj
+                                                </button>
+                                                <button
+                                                    onClick={saveReferralSettings}
+                                                    disabled={savingReferralSettings}
+                                                    className="px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm flex items-center gap-2 disabled:opacity-50"
+                                                >
+                                                    {savingReferralSettings ? (
+                                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                                    ) : (
+                                                        <Save className="w-4 h-4" />
+                                                    )}
+                                                    Zapisz
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                        {/* Procent prowizji */}
+                                        <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
+                                            <p className="text-xs text-slate-400 mb-2">Prowizja od zarobków</p>
+                                            {editingReferralSettings ? (
+                                                <div className="flex items-center gap-2">
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        max="50"
+                                                        step="1"
+                                                        value={referralSettings.commissionRate}
+                                                        onChange={(e) => setReferralSettings({
+                                                            ...referralSettings,
+                                                            commissionRate: parseFloat(e.target.value) || 0
+                                                        })}
+                                                        className="w-20 bg-slate-700 border border-purple-500 rounded px-3 py-2 text-lg font-bold"
+                                                    />
+                                                    <span className="text-xl font-bold text-purple-400">%</span>
+                                                </div>
+                                            ) : (
+                                                <p className="text-2xl font-bold text-purple-400">
+                                                    {referralSettings.commissionRate}%
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        {/* Czas trwania bonusu */}
+                                        <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
+                                            <p className="text-xs text-slate-400 mb-2">Czas trwania bonusu</p>
+                                            {editingReferralSettings ? (
+                                                <select
+                                                    value={referralSettings.bonusDuration === null ? 'forever' : referralSettings.bonusDuration}
+                                                    onChange={(e) => setReferralSettings({
+                                                        ...referralSettings,
+                                                        bonusDuration: e.target.value === 'forever' ? null : parseInt(e.target.value)
+                                                    })}
+                                                    className="w-full bg-slate-700 border border-purple-500 rounded px-3 py-2 text-lg font-bold"
+                                                >
+                                                    <option value="forever">Dożywotni</option>
+                                                    <option value="30">30 dni</option>
+                                                    <option value="90">90 dni</option>
+                                                    <option value="180">180 dni</option>
+                                                    <option value="365">365 dni</option>
+                                                </select>
+                                            ) : (
+                                                <p className="text-2xl font-bold text-cyan-400">
+                                                    {referralSettings.bonusDuration === null ? 'Dożywotni' : `${referralSettings.bonusDuration} dni`}
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        {/* Min. wypłata */}
+                                        <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
+                                            <p className="text-xs text-slate-400 mb-2">Min. wypłata referali</p>
+                                            {editingReferralSettings ? (
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xl font-bold text-green-400">$</span>
+                                                    <input
+                                                        type="number"
+                                                        min="1"
+                                                        step="1"
+                                                        value={referralSettings.minPayout}
+                                                        onChange={(e) => setReferralSettings({
+                                                            ...referralSettings,
+                                                            minPayout: parseFloat(e.target.value) || 5
+                                                        })}
+                                                        className="w-20 bg-slate-700 border border-purple-500 rounded px-3 py-2 text-lg font-bold"
+                                                    />
+                                                </div>
+                                            ) : (
+                                                <p className="text-2xl font-bold text-green-400">
+                                                    ${referralSettings.minPayout}
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        {/* Status systemu */}
+                                        <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
+                                            <p className="text-xs text-slate-400 mb-2">Status systemu</p>
+                                            {editingReferralSettings ? (
+                                                <button
+                                                    onClick={() => setReferralSettings({
+                                                        ...referralSettings,
+                                                        isActive: !referralSettings.isActive
+                                                    })}
+                                                    className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold ${
+                                                        referralSettings.isActive 
+                                                            ? 'bg-green-500/20 text-green-400 border border-green-500'
+                                                            : 'bg-red-500/20 text-red-400 border border-red-500'
+                                                    }`}
+                                                >
+                                                    {referralSettings.isActive ? (
+                                                        <>
+                                                            <ToggleRight className="w-5 h-5" />
+                                                            Aktywny
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <ToggleLeft className="w-5 h-5" />
+                                                            Wyłączony
+                                                        </>
+                                                    )}
+                                                </button>
+                                            ) : (
+                                                <div className={`flex items-center gap-2 text-2xl font-bold ${
+                                                    referralSettings.isActive ? 'text-green-400' : 'text-red-400'
+                                                }`}>
+                                                    {referralSettings.isActive ? (
+                                                        <>
+                                                            <CheckCircle className="w-6 h-6" />
+                                                            Aktywny
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <XCircle className="w-6 h-6" />
+                                                            Wyłączony
+                                                        </>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Top polecający */}
+                                {referralStats?.topReferrers?.length > 0 && (
+                                    <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
+                                        <div className="p-4 border-b border-slate-700">
+                                            <h3 className="font-semibold flex items-center gap-2">
+                                                <Crown className="w-5 h-5 text-yellow-500" />
+                                                Top polecający
+                                            </h3>
+                                        </div>
+                                        <div className="divide-y divide-slate-700">
+                                            {referralStats.topReferrers.map((referrer, index) => (
+                                                <div key={referrer.id} className="p-4 flex items-center justify-between">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                                                            index === 0 ? 'bg-yellow-500/20 text-yellow-400' :
+                                                            index === 1 ? 'bg-slate-400/20 text-slate-300' :
+                                                            index === 2 ? 'bg-orange-500/20 text-orange-400' :
+                                                            'bg-slate-700 text-slate-400'
+                                                        }`}>
+                                                            {index + 1}
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-medium">{referrer.email}</p>
+                                                            <p className="text-xs text-slate-400">
+                                                                Kod: <span className="font-mono text-purple-400">{referrer.referralCode}</span>
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className="font-bold text-green-400">${referrer.earnings.toFixed(4)}</p>
+                                                        <p className="text-xs text-slate-400">{referrer.referralsCount} poleconych</p>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Ostatnie polecenia */}
+                                {referralStats?.recentReferrals?.length > 0 && (
+                                    <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
+                                        <div className="p-4 border-b border-slate-700">
+                                            <h3 className="font-semibold flex items-center gap-2">
+                                                <Clock className="w-5 h-5 text-cyan-500" />
+                                                Ostatnie polecenia
+                                            </h3>
+                                        </div>
+                                        <div className="divide-y divide-slate-700">
+                                            {referralStats.recentReferrals.map((referral) => (
+                                                <div key={referral.id} className="p-4 flex items-center justify-between">
+                                                    <div>
+                                                        <p className="font-medium">{referral.email}</p>
+                                                        <p className="text-xs text-slate-400">
+                                                            Polecony przez: <span className="text-purple-400">{referral.referredBy.email}</span>
+                                                            <span className="mx-2">•</span>
+                                                            <span className="font-mono">{referral.referredBy.code}</span>
+                                                        </p>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className="text-xs text-slate-400">
+                                                            {new Date(referral.joinedAt).toLocaleDateString('pl-PL')}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Lista wszystkich poleceń */}
+                                <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
+                                    <button
+                                        onClick={() => {
+                                            setShowReferralsList(!showReferralsList);
+                                            if (!showReferralsList && allReferrals.length === 0) {
+                                                fetchAllReferrals(1, referralSearch);
+                                            }
+                                        }}
+                                        className="w-full p-4 flex items-center justify-between hover:bg-slate-700/30 transition"
+                                    >
+                                        <h3 className="font-semibold flex items-center gap-2">
+                                            <Users className="w-5 h-5 text-purple-500" />
+                                            Wszystkie polecenia ({referralStats?.overview?.totalReferrals || 0})
+                                        </h3>
+                                        {showReferralsList ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                                    </button>
+
+                                    {showReferralsList && (
+                                        <div className="border-t border-slate-700">
+                                            {/* Wyszukiwarka */}
+                                            <div className="p-4 bg-slate-700/30">
+                                                <div className="flex gap-2">
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Szukaj po emailu..."
+                                                        value={referralSearch}
+                                                        onChange={(e) => setReferralSearch(e.target.value)}
+                                                        onKeyPress={(e) => {
+                                                            if (e.key === 'Enter') {
+                                                                fetchAllReferrals(1, referralSearch);
+                                                            }
+                                                        }}
+                                                        className="flex-1 bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-purple-500"
+                                                    />
+                                                    <button
+                                                        onClick={() => fetchAllReferrals(1, referralSearch)}
+                                                        className="px-4 py-2 bg-purple-500 hover:bg-purple-600 rounded-lg transition flex items-center gap-2"
+                                                    >
+                                                        <Search className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            {/* Tabela */}
+                                            <div className="overflow-x-auto">
+                                                <table className="w-full">
+                                                    <thead className="bg-slate-700/50 text-xs text-slate-400">
+                                                        <tr>
+                                                            <th className="px-4 py-3 text-left">Polecony</th>
+                                                            <th className="px-4 py-3 text-left">Polecający</th>
+                                                            <th className="px-4 py-3 text-left">Data</th>
+                                                            <th className="px-4 py-3 text-right">Zarobki poleconego</th>
+                                                            <th className="px-4 py-3 text-right">Wygenerowana prowizja</th>
+                                                            <th className="px-4 py-3 text-center">Status</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-slate-700">
+                                                        {allReferrals.length === 0 ? (
+                                                            <tr>
+                                                                <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
+                                                                    Brak poleceń do wyświetlenia
+                                                                </td>
+                                                            </tr>
+                                                        ) : (
+                                                            allReferrals.map((referral) => (
+                                                                <tr key={referral.id} className="hover:bg-slate-700/30">
+                                                                    <td className="px-4 py-3">
+                                                                        <p className="font-medium">{referral.email}</p>
+                                                                    </td>
+                                                                    <td className="px-4 py-3">
+                                                                        <p className="text-sm">{referral.referredBy.email}</p>
+                                                                        <p className="text-xs text-purple-400 font-mono">{referral.referredBy.code}</p>
+                                                                    </td>
+                                                                    <td className="px-4 py-3 text-sm text-slate-400">
+                                                                        {new Date(referral.joinedAt).toLocaleDateString('pl-PL')}
+                                                                    </td>
+                                                                    <td className="px-4 py-3 text-right font-mono">
+                                                                        ${referral.totalEarned.toFixed(4)}
+                                                                    </td>
+                                                                    <td className="px-4 py-3 text-right font-mono text-green-400">
+                                                                        ${referral.totalCommissionGenerated.toFixed(4)}
+                                                                    </td>
+                                                                    <td className="px-4 py-3 text-center">
+                                                                        <span className={`px-2 py-0.5 rounded text-xs ${
+                                                                            referral.isActive 
+                                                                                ? 'bg-green-900/50 text-green-400' 
+                                                                                : 'bg-red-900/50 text-red-400'
+                                                                        }`}>
+                                                                            {referral.isActive ? 'Aktywny' : 'Nieaktywny'}
+                                                                        </span>
+                                                                        {referral.bonusExpires && (
+                                                                            <p className="text-xs text-slate-500 mt-1">
+                                                                                Do: {new Date(referral.bonusExpires).toLocaleDateString('pl-PL')}
+                                                                            </p>
+                                                                        )}
+                                                                    </td>
+                                                                </tr>
+                                                            ))
+                                                        )}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+
+                                            {/* Paginacja */}
+                                            {referralPagination && referralPagination.totalPages > 1 && (
+                                                <div className="p-4 border-t border-slate-700 flex items-center justify-between">
+                                                    <p className="text-sm text-slate-400">
+                                                        Strona {referralPage} z {referralPagination.totalPages}
+                                                    </p>
+                                                    <div className="flex gap-2">
+                                                        <button
+                                                            onClick={() => fetchAllReferrals(referralPage - 1, referralSearch)}
+                                                            disabled={referralPage <= 1}
+                                                            className="px-3 py-1 bg-slate-700 hover:bg-slate-600 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        >
+                                                            Poprzednia
+                                                        </button>
+                                                        <button
+                                                            onClick={() => fetchAllReferrals(referralPage + 1, referralSearch)}
+                                                            disabled={referralPage >= referralPagination.totalPages}
+                                                            className="px-3 py-1 bg-slate-700 hover:bg-slate-600 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        >
+                                                            Następna
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </>
+                        )}
                     </div>
                 )}
 

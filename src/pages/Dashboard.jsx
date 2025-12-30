@@ -1,13 +1,14 @@
-// Dashboard.jsx - RESPONSYWNY Z EDYCJĄ LINKÓW
+// Dashboard.jsx - RESPONSYWNY Z EDYCJĄ LINKÓW I SEKCJĄ REFERALI
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
     Link2, Plus, Copy, ExternalLink, Trash2, DollarSign, MousePointer, 
     LogOut, Loader2, BarChart3, Shield, User, Wallet, Globe, Menu, X,
-    Edit3, Check, AlertCircle
+    Edit3, Check, AlertCircle, Gift
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../api/axios';
+import ReferralSection from '../components/ReferralSection';
 
 // 🔥 Hook do wykrywania rozmiaru ekranu
 const useWindowSize = () => {
@@ -56,6 +57,9 @@ function Dashboard() {
     });
     const [updating, setUpdating] = useState(false);
     const [editErrors, setEditErrors] = useState({});
+
+    // 🆕 Stan dla zakładek
+    const [activeTab, setActiveTab] = useState('links'); // 'links' | 'referrals'
 
     useEffect(() => {
         const userData = localStorage.getItem('user');
@@ -372,6 +376,34 @@ function Dashboard() {
             border: '1px solid #334155',
             borderRadius: isMobile ? '10px' : '12px',
             padding: isMobile ? '16px' : '24px'
+        },
+
+        // Tabs
+        tabsContainer: {
+            display: 'flex',
+            gap: '8px',
+            marginBottom: isMobile ? '16px' : '24px',
+            borderBottom: '1px solid #334155',
+            paddingBottom: '0'
+        },
+        tab: {
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: isMobile ? '12px 16px' : '14px 24px',
+            backgroundColor: 'transparent',
+            border: 'none',
+            borderBottom: '2px solid transparent',
+            color: '#94a3b8',
+            cursor: 'pointer',
+            fontSize: isMobile ? '14px' : '15px',
+            fontWeight: '500',
+            transition: 'all 0.2s',
+            marginBottom: '-1px'
+        },
+        activeTab: {
+            color: '#0ea5e9',
+            borderBottomColor: '#0ea5e9'
         },
         
         // Links section
@@ -827,138 +859,167 @@ function Dashboard() {
                     </div>
                 </div>
 
-                {/* Links Section */}
-                <div style={styles.linksSection}>
-                    <div style={styles.linksHeader}>
-                        <h2 style={{ fontSize: isMobile ? '18px' : '20px', fontWeight: '600', margin: 0 }}>
-                            Twoje linki
-                        </h2>
-                        <button onClick={() => setShowModal(true)} style={styles.newLinkButton}>
-                            <Plus style={{ width: '16px', height: '16px' }} />
-                            Nowy link
-                        </button>
-                    </div>
+                {/* 🆕 Tabs */}
+                <div style={styles.tabsContainer}>
+                    <button
+                        onClick={() => setActiveTab('links')}
+                        style={{
+                            ...styles.tab,
+                            ...(activeTab === 'links' ? styles.activeTab : {})
+                        }}
+                    >
+                        <Link2 style={{ width: '18px', height: '18px' }} />
+                        Moje linki
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('referrals')}
+                        style={{
+                            ...styles.tab,
+                            ...(activeTab === 'referrals' ? styles.activeTab : {})
+                        }}
+                    >
+                        <Gift style={{ width: '18px', height: '18px' }} />
+                        Polecenia
+                    </button>
+                </div>
 
-                    {links.length === 0 ? (
-                        <div style={{ padding: isMobile ? '32px 16px' : '48px', textAlign: 'center' }}>
-                            <Link2 style={{ width: '48px', height: '48px', color: '#475569', margin: '0 auto 16px' }} />
-                            <p style={{ color: '#94a3b8' }}>Nie masz jeszcze żadnych linków</p>
-                            <button
-                                onClick={() => setShowModal(true)}
-                                style={{ 
-                                    marginTop: '16px', 
-                                    color: '#0ea5e9', 
-                                    background: 'none', 
-                                    border: 'none', 
-                                    cursor: 'pointer',
-                                    padding: '8px 16px',
-                                    fontSize: '16px'
-                                }}
-                            >
-                                Utwórz pierwszy link
+                {/* 🆕 Tab Content */}
+                {activeTab === 'referrals' ? (
+                    <ReferralSection isMobile={isMobile} />
+                ) : (
+                    /* Links Section */
+                    <div style={styles.linksSection}>
+                        <div style={styles.linksHeader}>
+                            <h2 style={{ fontSize: isMobile ? '18px' : '20px', fontWeight: '600', margin: 0 }}>
+                                Twoje linki
+                            </h2>
+                            <button onClick={() => setShowModal(true)} style={styles.newLinkButton}>
+                                <Plus style={{ width: '16px', height: '16px' }} />
+                                Nowy link
                             </button>
                         </div>
-                    ) : (
-                        <div>
-                            {links.map((link) => (
-                                <div 
-                                    key={link.id} 
-                                    style={{
-                                        ...styles.linkItem,
-                                        opacity: link.isActive === false ? 0.6 : 1
+
+                        {links.length === 0 ? (
+                            <div style={{ padding: isMobile ? '32px 16px' : '48px', textAlign: 'center' }}>
+                                <Link2 style={{ width: '48px', height: '48px', color: '#475569', margin: '0 auto 16px' }} />
+                                <p style={{ color: '#94a3b8' }}>Nie masz jeszcze żadnych linków</p>
+                                <button
+                                    onClick={() => setShowModal(true)}
+                                    style={{ 
+                                        marginTop: '16px', 
+                                        color: '#0ea5e9', 
+                                        background: 'none', 
+                                        border: 'none', 
+                                        cursor: 'pointer',
+                                        padding: '8px 16px',
+                                        fontSize: '16px'
                                     }}
                                 >
-                                    <div style={styles.linkItemContent}>
-                                        {/* Link Info */}
-                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
+                                    Utwórz pierwszy link
+                                </button>
+                            </div>
+                        ) : (
+                            <div>
+                                {links.map((link) => (
+                                    <div 
+                                        key={link.id} 
+                                        style={{
+                                            ...styles.linkItem,
+                                            opacity: link.isActive === false ? 0.6 : 1
+                                        }}
+                                    >
+                                        <div style={styles.linkItemContent}>
+                                            {/* Link Info */}
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
+                                                    <p style={{ 
+                                                        fontWeight: '500', 
+                                                        overflow: 'hidden', 
+                                                        textOverflow: 'ellipsis', 
+                                                        whiteSpace: 'nowrap', 
+                                                        margin: 0,
+                                                        fontSize: isMobile ? '15px' : '16px'
+                                                    }}>
+                                                        {link.title || link.originalUrl}
+                                                    </p>
+                                                    {/* 🆕 Indicator nieaktywnego linka */}
+                                                    {link.isActive === false && (
+                                                        <span style={styles.inactiveIndicator}>
+                                                            <X style={{ width: '12px', height: '12px' }} />
+                                                            Nieaktywny
+                                                        </span>
+                                                    )}
+                                                </div>
                                                 <p style={{ 
-                                                    fontWeight: '500', 
+                                                    fontSize: '13px', 
+                                                    color: '#94a3b8', 
                                                     overflow: 'hidden', 
                                                     textOverflow: 'ellipsis', 
                                                     whiteSpace: 'nowrap', 
-                                                    margin: 0,
-                                                    fontSize: isMobile ? '15px' : '16px'
+                                                    margin: '4px 0' 
                                                 }}>
-                                                    {link.title || link.originalUrl}
+                                                    {link.originalUrl}
                                                 </p>
-                                                {/* 🆕 Indicator nieaktywnego linka */}
-                                                {link.isActive === false && (
-                                                    <span style={styles.inactiveIndicator}>
-                                                        <X style={{ width: '12px', height: '12px' }} />
-                                                        Nieaktywny
-                                                    </span>
-                                                )}
+                                                <p style={{ fontSize: '14px', color: '#0ea5e9', margin: 0 }}>
+                                                    {link.shortUrl.replace(':3000', ':5173')}
+                                                </p>
                                             </div>
-                                            <p style={{ 
-                                                fontSize: '13px', 
-                                                color: '#94a3b8', 
-                                                overflow: 'hidden', 
-                                                textOverflow: 'ellipsis', 
-                                                whiteSpace: 'nowrap', 
-                                                margin: '4px 0' 
-                                            }}>
-                                                {link.originalUrl}
-                                            </p>
-                                            <p style={{ fontSize: '14px', color: '#0ea5e9', margin: 0 }}>
-                                                {link.shortUrl.replace(':3000', ':5173')}
-                                            </p>
-                                        </div>
 
-                                        {/* Stats + Actions */}
-                                        <div style={styles.linkItemStats}>
-                                            <div style={{ textAlign: 'center', minWidth: '60px' }}>
-                                                <p style={{ fontSize: '12px', color: '#94a3b8', margin: 0 }}>Kliknięcia</p>
-                                                <p style={{ fontWeight: '600', margin: 0, fontSize: isMobile ? '16px' : '14px' }}>
-                                                    {link.totalClicks}
-                                                </p>
-                                            </div>
-                                            <div style={{ textAlign: 'center', minWidth: '70px' }}>
-                                                <p style={{ fontSize: '12px', color: '#94a3b8', margin: 0 }}>Zarobione</p>
-                                                <p style={{ fontWeight: '600', color: '#22c55e', margin: 0, fontSize: isMobile ? '16px' : '14px' }}>
-                                                    ${parseFloat(link.totalEarned || 0).toFixed(4)}
-                                                </p>
-                                            </div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                {/* 🆕 Przycisk Edytuj */}
-                                                <button
-                                                    onClick={() => openEditModal(link)}
-                                                    style={{ ...styles.actionButton, color: '#0ea5e9' }}
-                                                    title="Edytuj"
-                                                >
-                                                    <Edit3 style={{ width: '18px', height: '18px' }} />
-                                                </button>
-                                                <button
-                                                    onClick={() => copyLink(link.shortUrl)}
-                                                    style={styles.actionButton}
-                                                    title="Kopiuj"
-                                                >
-                                                    <Copy style={{ width: '18px', height: '18px' }} />
-                                                </button>
-                                                <a
-                                                    href={link.shortUrl.replace(':3000', ':5173')}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    style={styles.actionButton}
-                                                    title="Otwórz"
-                                                >
-                                                    <ExternalLink style={{ width: '18px', height: '18px' }} />
-                                                </a>
-                                                <button
-                                                    onClick={() => deleteLink(link.id)}
-                                                    style={{ ...styles.actionButton, color: '#ef4444' }}
-                                                    title="Usuń"
-                                                >
-                                                    <Trash2 style={{ width: '18px', height: '18px' }} />
-                                                </button>
+                                            {/* Stats + Actions */}
+                                            <div style={styles.linkItemStats}>
+                                                <div style={{ textAlign: 'center', minWidth: '60px' }}>
+                                                    <p style={{ fontSize: '12px', color: '#94a3b8', margin: 0 }}>Kliknięcia</p>
+                                                    <p style={{ fontWeight: '600', margin: 0, fontSize: isMobile ? '16px' : '14px' }}>
+                                                        {link.totalClicks}
+                                                    </p>
+                                                </div>
+                                                <div style={{ textAlign: 'center', minWidth: '70px' }}>
+                                                    <p style={{ fontSize: '12px', color: '#94a3b8', margin: 0 }}>Zarobione</p>
+                                                    <p style={{ fontWeight: '600', color: '#22c55e', margin: 0, fontSize: isMobile ? '16px' : '14px' }}>
+                                                        ${parseFloat(link.totalEarned || 0).toFixed(4)}
+                                                    </p>
+                                                </div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                    {/* 🆕 Przycisk Edytuj */}
+                                                    <button
+                                                        onClick={() => openEditModal(link)}
+                                                        style={{ ...styles.actionButton, color: '#0ea5e9' }}
+                                                        title="Edytuj"
+                                                    >
+                                                        <Edit3 style={{ width: '18px', height: '18px' }} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => copyLink(link.shortUrl)}
+                                                        style={styles.actionButton}
+                                                        title="Kopiuj"
+                                                    >
+                                                        <Copy style={{ width: '18px', height: '18px' }} />
+                                                    </button>
+                                                    <a
+                                                        href={link.shortUrl.replace(':3000', ':5173')}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        style={styles.actionButton}
+                                                        title="Otwórz"
+                                                    >
+                                                        <ExternalLink style={{ width: '18px', height: '18px' }} />
+                                                    </a>
+                                                    <button
+                                                        onClick={() => deleteLink(link.id)}
+                                                        style={{ ...styles.actionButton, color: '#ef4444' }}
+                                                        title="Usuń"
+                                                    >
+                                                        <Trash2 style={{ width: '18px', height: '18px' }} />
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
             </main>
 
             {/* Create Link Modal */}

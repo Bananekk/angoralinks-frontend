@@ -1,7 +1,7 @@
-// App.jsx - ZOPTYMALIZOWANY
+// App.jsx - ZOPTYMALIZOWANY Z TRASĄ REFERALI
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import { Suspense, lazy } from 'react';
+import { Suspense, lazy, Component } from 'react';
 
 // Loading Spinner Component
 const LoadingSpinner = () => (
@@ -30,8 +30,6 @@ const LoadingSpinner = () => (
 );
 
 // Error Boundary Component
-import { Component } from 'react';
-
 class ErrorBoundary extends Component {
     constructor(props) {
         super(props);
@@ -97,6 +95,9 @@ const Terms = lazy(() => import('./pages/Terms'));
 const Contact = lazy(() => import('./pages/Contact'));
 const CpmRates = lazy(() => import('./pages/CpmRates'));
 
+// 🆕 Strona referali
+const RefLanding = lazy(() => import('./pages/RefLanding'));
+
 function App() {
     return (
         <ErrorBoundary>
@@ -127,6 +128,9 @@ function App() {
                         <Route path="/terms" element={<Terms />} />
                         <Route path="/contact" element={<Contact />} />
                         <Route path="/cpm-rates" element={<CpmRates />} />
+                        
+                        {/* 🆕 Trasa referali */}
+                        <Route path="/ref/:code" element={<RefLanding />} />
                         
                         {/* 404 Route */}
                         <Route path="*" element={
