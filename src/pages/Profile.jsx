@@ -92,7 +92,9 @@ function Profile() {
         }
     };
 
-    const handleDeleteAccount = async () => {
+    const handleDeleteAccount = async (e) => {
+        if (e) e.preventDefault();
+        
         if (!deletePassword) {
             toast.error('Wpisz hasło aby potwierdzić');
             return;
@@ -238,7 +240,14 @@ function Profile() {
                         <form onSubmit={handleUpdateEmail}>
                             <div style={{ marginBottom: '16px' }}>
                                 <label style={{ display: 'block', marginBottom: '8px', color: '#94a3b8', fontSize: '14px' }}>Adres email</label>
-                                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} required />
+                                <input 
+                                    type="email" 
+                                    value={email} 
+                                    onChange={(e) => setEmail(e.target.value)} 
+                                    style={inputStyle} 
+                                    autoComplete="email"
+                                    required 
+                                />
                             </div>
                             <button type="submit" disabled={savingEmail} style={buttonStyle(savingEmail)}>
                                 {savingEmail ? <Loader2 className="animate-spin" style={{ width: '20px', height: '20px' }} /> : <CheckCircle style={{ width: '20px', height: '20px' }} />}
@@ -258,15 +267,37 @@ function Profile() {
                         <form onSubmit={handleChangePassword}>
                             <div style={{ marginBottom: '16px' }}>
                                 <label style={{ display: 'block', marginBottom: '8px', color: '#94a3b8', fontSize: '14px' }}>Aktualne hasło</label>
-                                <input type="password" value={passwords.currentPassword} onChange={(e) => setPasswords({ ...passwords, currentPassword: e.target.value })} style={inputStyle} required />
+                                <input 
+                                    type="password" 
+                                    value={passwords.currentPassword} 
+                                    onChange={(e) => setPasswords({ ...passwords, currentPassword: e.target.value })} 
+                                    style={inputStyle} 
+                                    autoComplete="current-password"
+                                    required 
+                                />
                             </div>
                             <div style={{ marginBottom: '16px' }}>
                                 <label style={{ display: 'block', marginBottom: '8px', color: '#94a3b8', fontSize: '14px' }}>Nowe hasło</label>
-                                <input type="password" value={passwords.newPassword} onChange={(e) => setPasswords({ ...passwords, newPassword: e.target.value })} placeholder="Min. 8 znaków, 1 cyfra, 1 wielka litera" style={inputStyle} required />
+                                <input 
+                                    type="password" 
+                                    value={passwords.newPassword} 
+                                    onChange={(e) => setPasswords({ ...passwords, newPassword: e.target.value })} 
+                                    placeholder="Min. 8 znaków, 1 cyfra, 1 wielka litera" 
+                                    style={inputStyle} 
+                                    autoComplete="new-password"
+                                    required 
+                                />
                             </div>
                             <div style={{ marginBottom: '24px' }}>
                                 <label style={{ display: 'block', marginBottom: '8px', color: '#94a3b8', fontSize: '14px' }}>Potwierdź nowe hasło</label>
-                                <input type="password" value={passwords.confirmPassword} onChange={(e) => setPasswords({ ...passwords, confirmPassword: e.target.value })} style={inputStyle} required />
+                                <input 
+                                    type="password" 
+                                    value={passwords.confirmPassword} 
+                                    onChange={(e) => setPasswords({ ...passwords, confirmPassword: e.target.value })} 
+                                    style={inputStyle} 
+                                    autoComplete="new-password"
+                                    required 
+                                />
                             </div>
                             <button type="submit" disabled={savingPassword} style={buttonStyle(savingPassword)}>
                                 {savingPassword ? <Loader2 className="animate-spin" style={{ width: '20px', height: '20px' }} /> : <Lock style={{ width: '20px', height: '20px' }} />}
@@ -288,26 +319,90 @@ function Profile() {
                         </p>
                         
                         {!showDeleteConfirm ? (
-                            <button onClick={() => setShowDeleteConfirm(true)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '14px 24px', backgroundColor: '#7f1d1d', color: '#ffffff', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', width: isMobile ? '100%' : 'auto', justifyContent: 'center', minHeight: '48px' }}>
+                            <button 
+                                type="button"
+                                onClick={() => setShowDeleteConfirm(true)} 
+                                style={{ 
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    gap: '8px', 
+                                    padding: '14px 24px', 
+                                    backgroundColor: '#7f1d1d', 
+                                    color: '#ffffff', 
+                                    border: 'none', 
+                                    borderRadius: '8px', 
+                                    fontWeight: 'bold', 
+                                    cursor: 'pointer', 
+                                    width: isMobile ? '100%' : 'auto', 
+                                    justifyContent: 'center', 
+                                    minHeight: '48px' 
+                                }}
+                            >
                                 <Trash2 style={{ width: '20px', height: '20px' }} />
                                 Chcę usunąć konto
                             </button>
                         ) : (
-                            <div>
+                            <form onSubmit={handleDeleteAccount}>
                                 <div style={{ marginBottom: '16px' }}>
-                                    <label style={{ display: 'block', marginBottom: '8px', color: '#f87171', fontSize: '14px' }}>Wpisz hasło aby potwierdzić</label>
-                                    <input type="password" value={deletePassword} onChange={(e) => setDeletePassword(e.target.value)} style={{ ...inputStyle, borderColor: '#7f1d1d' }} />
+                                    <label style={{ display: 'block', marginBottom: '8px', color: '#f87171', fontSize: '14px' }}>
+                                        Wpisz hasło aby potwierdzić
+                                    </label>
+                                    <input 
+                                        type="password" 
+                                        value={deletePassword} 
+                                        onChange={(e) => setDeletePassword(e.target.value)} 
+                                        style={{ ...inputStyle, borderColor: '#7f1d1d' }}
+                                        autoComplete="current-password"
+                                        autoFocus
+                                    />
                                 </div>
                                 <div style={{ display: 'flex', gap: '12px', flexDirection: isMobile ? 'column' : 'row' }}>
-                                    <button onClick={() => { setShowDeleteConfirm(false); setDeletePassword(''); }} style={{ padding: '14px 24px', backgroundColor: '#334155', color: '#ffffff', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', flex: 1, minHeight: '48px' }}>
+                                    <button 
+                                        type="button"
+                                        onClick={() => { setShowDeleteConfirm(false); setDeletePassword(''); }} 
+                                        style={{ 
+                                            padding: '14px 24px', 
+                                            backgroundColor: '#334155', 
+                                            color: '#ffffff', 
+                                            border: 'none', 
+                                            borderRadius: '8px', 
+                                            fontWeight: 'bold', 
+                                            cursor: 'pointer', 
+                                            flex: 1, 
+                                            minHeight: '48px' 
+                                        }}
+                                    >
                                         Anuluj
                                     </button>
-                                    <button onClick={handleDeleteAccount} disabled={deleting} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '14px 24px', backgroundColor: '#dc2626', color: '#ffffff', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: deleting ? 'not-allowed' : 'pointer', opacity: deleting ? 0.7 : 1, flex: 1, minHeight: '48px' }}>
-                                        {deleting ? <Loader2 className="animate-spin" style={{ width: '20px', height: '20px' }} /> : <Trash2 style={{ width: '20px', height: '20px' }} />}
+                                    <button 
+                                        type="submit"
+                                        disabled={deleting} 
+                                        style={{ 
+                                            display: 'flex', 
+                                            alignItems: 'center', 
+                                            justifyContent: 'center', 
+                                            gap: '8px', 
+                                            padding: '14px 24px', 
+                                            backgroundColor: '#dc2626', 
+                                            color: '#ffffff', 
+                                            border: 'none', 
+                                            borderRadius: '8px', 
+                                            fontWeight: 'bold', 
+                                            cursor: deleting ? 'not-allowed' : 'pointer', 
+                                            opacity: deleting ? 0.7 : 1, 
+                                            flex: 1, 
+                                            minHeight: '48px' 
+                                        }}
+                                    >
+                                        {deleting ? (
+                                            <Loader2 className="animate-spin" style={{ width: '20px', height: '20px' }} />
+                                        ) : (
+                                            <Trash2 style={{ width: '20px', height: '20px' }} />
+                                        )}
                                         Usuń konto
                                     </button>
                                 </div>
-                            </div>
+                            </form>
                         )}
                     </div>
                 )}
