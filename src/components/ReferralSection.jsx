@@ -9,10 +9,10 @@ import {
     TrendingUp,
     ChevronDown,
     ChevronUp,
-    ExternalLink,
     Loader2,
     AlertCircle,
-    Share2
+    Share2,
+    Sparkles
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../api/axios';
@@ -26,6 +26,10 @@ function ReferralSection({ isMobile = false }) {
     const [showReferrals, setShowReferrals] = useState(false);
     const [showCommissions, setShowCommissions] = useState(false);
     const [loadingCommissions, setLoadingCommissions] = useState(false);
+    
+    // 🆕 Stan dla generowania kodu
+    const [generatingCode, setGeneratingCode] = useState(false);
+    const [hasCode, setHasCode] = useState(false);
 
     useEffect(() => {
         loadStats();
@@ -37,11 +41,31 @@ function ReferralSection({ isMobile = false }) {
             setError(null);
             const response = await api.get('/referrals/stats');
             setStats(response.data);
+            setHasCode(!!response.data.referralCode);
         } catch (err) {
             console.error('Failed to load referral stats:', err);
             setError('Nie udało się załadować statystyk referali');
         } finally {
             setLoading(false);
+        }
+    };
+
+    // 🆕 Generuj kod na żądanie
+    const generateCode = async () => {
+        setGeneratingCode(true);
+        try {
+            const response = await api.post('/referrals/generate-code');
+            if (response.data.success) {
+                toast.success('Kod polecający został wygenerowany!');
+                setHasCode(true);
+                // Odśwież statystyki
+                await loadStats();
+            }
+        } catch (err) {
+            console.error('Failed to generate code:', err);
+            toast.error('Błąd generowania kodu');
+        } finally {
+            setGeneratingCode(false);
         }
     };
 
@@ -67,7 +91,6 @@ function ReferralSection({ isMobile = false }) {
             toast.success('Skopiowano link polecający!');
             setTimeout(() => setCopied(false), 2000);
         } catch (err) {
-            // Fallback dla starszych przeglądarek
             const textArea = document.createElement('textarea');
             textArea.value = stats?.referralLink;
             document.body.appendChild(textArea);
@@ -322,6 +345,27 @@ function ReferralSection({ isMobile = false }) {
             border: 'none',
             cursor: 'pointer',
             fontSize: '14px'
+        },
+        // 🆕 Style dla stanu bez kodu
+        noCodeContainer: {
+            padding: isMobile ? '32px 16px' : '48px 24px',
+            textAlign: 'center'
+        },
+        generateButton: {
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            backgroundColor: '#7c3aed',
+            color: '#ffffff',
+            padding: '14px 28px',
+            borderRadius: '10px',
+            border: 'none',
+            fontWeight: '600',
+            fontSize: '16px',
+            cursor: 'pointer',
+            marginTop: '20px',
+            transition: 'background-color 0.2s'
         }
     };
 
@@ -351,18 +395,73 @@ function ReferralSection({ isMobile = false }) {
         );
     }
 
-    // No referral code (should not happen, but just in case)
-    if (!stats?.referralCode) {
+    // 🆕 Stan gdy użytkownik nie ma jeszcze kodu
+    if (!hasCode) {
         return (
             <div style={styles.container}>
-                <div style={styles.emptyState}>
-                    <Gift style={{ width: '32px', height: '32px', marginBottom: '12px', opacity: 0.5 }} />
-                    <p>System referali jest niedostępny</p>
+                {/* Header */}
+                <div style={styles.header}>
+                    <div style={styles.headerTitle}>
+                        <Gift style={{ width: '24px', height: '24px' }} />
+                        Program Poleceń
+                    </div>
+                    <p style={styles.headerSubtitle}>
+                        Zarabiaj 5% prowizji od zarobków poleconych użytkowników!
+                    </p>
+                </div>
+
+                {/* Zachęta do wygenerowania kodu */}
+                <div style={styles.noCodeContainer}>
+                    <Sparkles style={{ width: '48px', height: '48px', color: '#a855f7', marginBottom: '16px' }} />
+                    <h3 style={{ fontSize: '20px', fontWeight: '600', marginBottom: '8px', color: '#f8fafc' }}>
+                        Dołącz do programu poleceń!
+                    </h3>
+                    <p style={{ color: '#94a3b8', maxWidth: '400px', margin: '0 auto', lineHeight: '1.6' }}>
+                        Wygeneruj swój unikalny link polecający i zacznij zarabiać 5% od każdego 
+                        zarobku osób, które zaprosisz do AngoraLinks.
+                    </p>
+                    <button 
+                        onClick={generateCode}
+                        disabled={generatingCode}
+                        style={{
+                            ...styles.generateButton,
+                            opacity: generatingCode ? 0.7 : 1,
+                            cursor: generatingCode ? 'not-allowed' : 'pointer'
+                        }}
+                    >
+                        {generatingCode ? (
+                            <>
+                                <Loader2 className="animate-spin" style={{ width: '20px', height: '20px' }} />
+                                Generowanie...
+                            </>
+                        ) : (
+                            <>
+                                <Gift style={{ width: '20px', height: '20px' }} />
+                                Wygeneruj mój link polecający
+                            </>
+                        )}
+                    </button>
+                </div>
+
+                {/* Info Box */}
+                <div style={styles.infoBox}>
+                    <div style={styles.infoContent}>
+                        <TrendingUp style={styles.infoIcon} />
+                        <div>
+                            <div style={styles.infoTitle}>Jak to działa?</div>
+                            <p style={styles.infoText}>
+                                Po wygenerowaniu kodu otrzymasz unikalny link. Udostępnij go znajomym - 
+                                gdy ktoś się zarejestruje i zacznie zarabiać, Ty otrzymujesz <strong style={{ color: '#a855f7' }}>5% prowizji</strong> od 
+                                ich zarobków. Prowizja jest dożywotnia!
+                            </p>
+                        </div>
+                    </div>
                 </div>
             </div>
         );
     }
 
+    // 🆕 Normalny widok (gdy użytkownik ma kod)
     return (
         <div style={styles.container}>
             {/* Header */}
@@ -372,7 +471,7 @@ function ReferralSection({ isMobile = false }) {
                     Program Poleceń
                 </div>
                 <p style={styles.headerSubtitle}>
-                    Zarabiaj 10% prowizji od zarobków poleconych użytkowników!
+                    Zarabiaj 5% prowizji od zarobków poleconych użytkowników!
                 </p>
             </div>
 
@@ -570,7 +669,7 @@ function ReferralSection({ isMobile = false }) {
                         <div style={styles.infoTitle}>Jak to działa?</div>
                         <p style={styles.infoText}>
                             Udostępnij swój link polecający znajomym. Gdy ktoś się zarejestruje 
-                            i zacznie zarabiać na swoich linkach, Ty otrzymujesz <strong style={{ color: '#a855f7' }}>10% prowizji</strong> od 
+                            i zacznie zarabiać na swoich linkach, Ty otrzymujesz <strong style={{ color: '#a855f7' }}>5% prowizji</strong> od 
                             ich zarobków. Prowizja jest dożywotnia - im więcej zarabiają Twoi 
                             poleceni, tym więcej zarabiasz Ty!
                         </p>
