@@ -1,4 +1,4 @@
-// Register.jsx - Z OBSŁUGĄ KODU POLECAJĄCEGO
+// Register.jsx - POPRAWIONY
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Link2, Mail, Lock, Loader2, Gift, CheckCircle, AlertCircle } from 'lucide-react';
@@ -25,22 +25,29 @@ function Register() {
     useEffect(() => {
         const code = searchParams.get('ref');
         if (code) {
+            setFormData(prev => ({ ...prev, referralCode: code }));
             validateReferralCode(code);
         }
     }, [searchParams]);
 
     const validateReferralCode = async (code) => {
-        if (!code || code.length < 6) {
+        // 🔧 FIX: Kody mają 8 znaków, nie 6
+        if (!code || code.length < 8) {
             setReferralValid(null);
             return;
         }
 
         setCheckingReferral(true);
         try {
-            const response = await api.get(`/referrals/validate/${code}`);
+            const response = await api.get(`/referrals/validate/${code.toUpperCase()}`);
             setReferralValid(response.data.valid);
+            
+            // 🔧 DEBUG log - usuń po naprawie
+            console.log('📝 Referral validation:', { code, valid: response.data.valid });
         } catch (err) {
-            setReferralValid(false);
+            console.error('❌ Referral validation error:', err);
+            // 🔧 FIX: Nie blokuj kodu przy błędzie sieciowym - backend zwaliduje
+            setReferralValid(null);
         } finally {
             setCheckingReferral(false);
         }
@@ -52,7 +59,8 @@ function Register() {
         
         // Waliduj kod polecający gdy użytkownik wpisuje
         if (name === 'referralCode') {
-            if (value.length >= 6) {
+            // 🔧 FIX: Kody mają 8 znaków
+            if (value.length >= 8) {
                 validateReferralCode(value);
             } else {
                 setReferralValid(null);
@@ -77,15 +85,27 @@ function Register() {
                 confirmPassword: formData.confirmPassword
             };
             
-            // Dodaj kod polecający tylko jeśli jest prawidłowy
-            if (formData.referralCode && referralValid) {
+            // 🔧 FIX: Wyślij kod jeśli jest wpisany (backend zwaliduje)
+            // Nie wymagaj referralValid === true, bo może być null przy błędzie sieciowym
+            if (formData.referralCode && formData.referralCode.length >= 8) {
                 payload.referralCode = formData.referralCode.toUpperCase();
+                console.log('📝 Sending referral code:', payload.referralCode);
             }
             
-            await api.post('/auth/register', payload);
+            console.log('📝 Registration payload:', { 
+                email: payload.email, 
+                hasReferralCode: !!payload.referralCode,
+                referralCode: payload.referralCode 
+            });
+            
+            const response = await api.post('/auth/register', payload);
+            
+            console.log('✅ Registration response:', response.data);
+            
             toast.success('Sprawdź email i wpisz kod weryfikacyjny!');
             navigate('/verify', { state: { email: formData.email } });
         } catch (error) {
+            console.error('❌ Registration error:', error.response?.data);
             toast.error(error.response?.data?.error || 'Błąd rejestracji');
         } finally {
             setLoading(false);
@@ -108,6 +128,9 @@ function Register() {
         paddingRight: '44px'
     };
 
+    // 🔧 FIX: Pokaż banner nawet jeśli walidacja jest w toku lub kod został wpisany
+    const showReferralBanner = formData.referralCode && formData.referralCode.length >= 8 && referralValid !== false;
+
     return (
         <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#0f172a', color: '#f8fafc', padding: '16px' }}>
             <div style={{ width: '100%', maxWidth: '400px' }}>
@@ -118,12 +141,14 @@ function Register() {
                     </Link>
                 </div>
 
-                {/* Banner informujący o poleceniu */}
-                {formData.referralCode && referralValid && (
+                {/* Banner informujący o poleceniu - 🔧 POPRAWIONY WARUNEK */}
+                {showReferralBanner && (
                     <div style={{
                         marginBottom: '24px',
                         padding: '16px',
-                        background: 'linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)',
+                        background: referralValid === true 
+                            ? 'linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)'
+                            : 'linear-gradient(135deg, #475569 0%, #334155 100%)',
                         borderRadius: '12px',
                         display: 'flex',
                         alignItems: 'center',
@@ -131,9 +156,14 @@ function Register() {
                     }}>
                         <Gift style={{ width: '32px', height: '32px', color: '#ffffff', flexShrink: 0 }} />
                         <div>
-                            <p style={{ margin: 0, fontWeight: '600', fontSize: '15px' }}>Zostałeś polecony!</p>
+                            <p style={{ margin: 0, fontWeight: '600', fontSize: '15px' }}>
+                                {referralValid === true ? 'Zostałeś polecony!' : 'Weryfikacja kodu...'}
+                            </p>
                             <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'rgba(255,255,255,0.8)' }}>
-                                Twój polecający otrzyma 10% prowizji od Twoich zarobków
+                                {referralValid === true 
+                                    ? 'Twój polecający otrzyma 10% prowizji od Twoich zarobków'
+                                    : 'Kod zostanie zweryfikowany przy rejestracji'
+                                }
                             </p>
                         </div>
                     </div>
@@ -247,7 +277,7 @@ function Register() {
                                 )}
                             </div>
                             {/* Komunikat o statusie kodu */}
-                            {referralValid === false && formData.referralCode.length >= 6 && (
+                            {referralValid === false && formData.referralCode.length >= 8 && (
                                 <p style={{ marginTop: '6px', fontSize: '13px', color: '#ef4444' }}>
                                     Nieprawidłowy kod polecający
                                 </p>
