@@ -1,4 +1,4 @@
-// Admin.jsx - KOMPLETNY Z ZAKŁADKĄ REFERALI
+// Admin.jsx - KOMPLETNY Z ZAKŁADKĄ REFERALI I FRAUD ALERTS
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
@@ -11,6 +11,254 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../api/axios';
+
+// 🆕 KOMPONENT ALERTÓW FRAUDU
+const FraudAlertsSection = ({ stats, onRefresh }) => {
+    const [alerts, setAlerts] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [filter, setFilter] = useState('PENDING');
+    const [selectedAlert, setSelectedAlert] = useState(null);
+    const [actionLoading, setActionLoading] = useState(null);
+    const [showAlerts, setShowAlerts] = useState(false);
+
+    const fetchAlerts = async () => {
+        setLoading(true);
+        try {
+            const res = await api.get('/admin/fraud-alerts', { 
+                params: { status: filter || undefined, limit: 50 } 
+            });
+            setAlerts(res.data.data?.alerts || []);
+        } catch (error) {
+            console.error('Error fetching fraud alerts:', error);
+            toast.error('Błąd pobierania alertów');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (showAlerts) {
+            fetchAlerts();
+        }
+    }, [showAlerts, filter]);
+
+    const handleResolve = async (alertId, resolution, notes = '') => {
+        setActionLoading(alertId);
+        try {
+            await api.post(`/admin/fraud-alerts/${alertId}/resolve`, { resolution, notes });
+            toast.success('Alert rozwiązany');
+            fetchAlerts();
+            onRefresh?.();
+            setSelectedAlert(null);
+        } catch (error) {
+            console.error('Error resolving alert:', error);
+            toast.error(error.response?.data?.message || 'Błąd');
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
+    const reasonLabels = {
+        'same_ip_as_referrer': 'Ten sam IP',
+        'same_device_fingerprint': 'To samo urządzenie',
+        'same_user_agent': 'Ten sam User-Agent',
+        'identical_device_profile': 'Identyczny profil',
+        'similar_device_profile': 'Podobny profil',
+        'suspicious_timing_very_fast': 'Bardzo szybko (<1h)',
+        'suspicious_timing_fast': 'Szybko (<24h)',
+        'ip_matches_previous_referrals': 'IP jak poprzednie ref.',
+        'device_matches_previous_referrals': 'Urządzenie jak poprzednie',
+        'burst_referral_pattern': 'Burst pattern (5+/24h)',
+        'high_referral_frequency': 'Wysoka częstotliwość'
+    };
+
+    const getRiskColor = (score) => {
+        if (score >= 70) return 'text-red-400 bg-red-900/50';
+        if (score >= 40) return 'text-yellow-400 bg-yellow-900/50';
+        return 'text-green-400 bg-green-900/50';
+    };
+
+    const getStatusBadge = (status) => {
+        const styles = {
+            PENDING: 'bg-yellow-900/50 text-yellow-400',
+            APPROVED: 'bg-green-900/50 text-green-400',
+            BLOCKED_REFERRED: 'bg-red-900/50 text-red-400',
+            BLOCKED_BOTH: 'bg-red-900/50 text-red-400',
+            REFERRAL_DISABLED: 'bg-orange-900/50 text-orange-400'
+        };
+        const labels = {
+            PENDING: 'Oczekuje',
+            APPROVED: 'Zatwierdzony',
+            BLOCKED_REFERRED: 'Zablokowany',
+            BLOCKED_BOTH: 'Obaj zablokowani',
+            REFERRAL_DISABLED: 'Ref. wyłączone'
+        };
+        return (
+            <span className={`px-2 py-0.5 rounded text-xs ${styles[status] || ''}`}>
+                {labels[status] || status}
+            </span>
+        );
+    };
+
+    return (
+        <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
+            <button
+                onClick={() => setShowAlerts(!showAlerts)}
+                className="w-full p-4 flex items-center justify-between hover:bg-slate-700/30 transition"
+            >
+                <h3 className="font-semibold flex items-center gap-2">
+                    <AlertCircle className={`w-5 h-5 ${(stats?.pending || 0) > 0 ? 'text-red-500' : 'text-slate-500'}`} />
+                    Alerty fraudu
+                    {(stats?.pending || 0) > 0 && (
+                        <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
+                            {stats.pending}
+                        </span>
+                    )}
+                </h3>
+                {showAlerts ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+            </button>
+
+            {showAlerts && (
+                <div className="border-t border-slate-700">
+                    {/* Stats */}
+                    {stats && (
+                        <div className="p-4 bg-slate-700/30 grid grid-cols-2 sm:grid-cols-5 gap-3">
+                            <div className="text-center">
+                                <p className="text-2xl font-bold text-yellow-400">{stats.pending}</p>
+                                <p className="text-xs text-slate-400">Oczekujące</p>
+                            </div>
+                            <div className="text-center">
+                                <p className="text-2xl font-bold text-red-400">{stats.highRisk}</p>
+                                <p className="text-xs text-slate-400">Wysokie ryzyko</p>
+                            </div>
+                            <div className="text-center">
+                                <p className="text-2xl font-bold text-green-400">{stats.approved}</p>
+                                <p className="text-xs text-slate-400">Zatwierdzone</p>
+                            </div>
+                            <div className="text-center">
+                                <p className="text-2xl font-bold text-red-400">{stats.blocked}</p>
+                                <p className="text-xs text-slate-400">Zablokowane</p>
+                            </div>
+                            <div className="text-center">
+                                <p className="text-2xl font-bold text-cyan-400">{stats.avgRiskScore}%</p>
+                                <p className="text-xs text-slate-400">Śr. ryzyko</p>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Filters */}
+                    <div className="p-4 border-t border-slate-700 flex items-center gap-2">
+                        <Filter className="w-4 h-4 text-slate-400" />
+                        <select
+                            value={filter}
+                            onChange={(e) => setFilter(e.target.value)}
+                            className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-1.5 text-sm"
+                        >
+                            <option value="">Wszystkie</option>
+                            <option value="PENDING">Oczekujące</option>
+                            <option value="APPROVED">Zatwierdzone</option>
+                            <option value="BLOCKED_REFERRED">Zablokowane</option>
+                        </select>
+                        <button
+                            onClick={fetchAlerts}
+                            disabled={loading}
+                            className="p-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg"
+                        >
+                            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                        </button>
+                    </div>
+
+                    {/* Alerts list */}
+                    <div className="divide-y divide-slate-700 max-h-96 overflow-y-auto">
+                        {loading ? (
+                            <div className="p-8 text-center">
+                                <Loader2 className="w-6 h-6 animate-spin mx-auto text-slate-400" />
+                            </div>
+                        ) : alerts.length === 0 ? (
+                            <div className="p-8 text-center text-slate-400">
+                                <Shield className="w-10 h-10 mx-auto mb-2 opacity-50" />
+                                <p>Brak alertów</p>
+                            </div>
+                        ) : (
+                            alerts.map(alert => (
+                                <div key={alert.id} className="p-4 hover:bg-slate-700/30">
+                                    <div className="flex items-start justify-between gap-4">
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className={`px-2 py-0.5 rounded text-xs font-bold ${getRiskColor(alert.riskScore)}`}>
+                                                    {alert.riskScore}%
+                                                </span>
+                                                {getStatusBadge(alert.status)}
+                                                <span className="text-xs text-slate-500">
+                                                    {new Date(alert.createdAt).toLocaleDateString('pl-PL')}
+                                                </span>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-4 text-sm">
+                                                <div>
+                                                    <p className="text-slate-400 text-xs">Polecający:</p>
+                                                    <p className="truncate">{alert.referrer?.email}</p>
+                                                    {alert.referrer?.referralDisabled && (
+                                                        <span className="text-xs text-red-400">Ref. wyłączone</span>
+                                                    )}
+                                                </div>
+                                                <div>
+                                                    <p className="text-slate-400 text-xs">Polecony:</p>
+                                                    <p className="truncate">{alert.referred?.email}</p>
+                                                    {!alert.referred?.isActive && (
+                                                        <span className="text-xs text-red-400">Nieaktywny</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="flex flex-wrap gap-1 mt-2">
+                                                {alert.reasons?.slice(0, 3).map((reason, i) => (
+                                                    <span key={i} className="text-xs bg-slate-700 px-2 py-0.5 rounded">
+                                                        {reasonLabels[reason] || reason}
+                                                    </span>
+                                                ))}
+                                                {alert.reasons?.length > 3 && (
+                                                    <span className="text-xs text-slate-500">+{alert.reasons.length - 3}</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                        
+                                        {alert.status === 'PENDING' && (
+                                            <div className="flex items-center gap-1">
+                                                <button
+                                                    onClick={() => handleResolve(alert.id, 'APPROVED')}
+                                                    disabled={actionLoading === alert.id}
+                                                    className="p-1.5 text-green-400 hover:bg-green-900/30 rounded"
+                                                    title="Zezwól (fałszywy alarm)"
+                                                >
+                                                    <CheckCircle className="w-4 h-4" />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleResolve(alert.id, 'REFERRAL_DISABLED')}
+                                                    disabled={actionLoading === alert.id}
+                                                    className="p-1.5 text-orange-400 hover:bg-orange-900/30 rounded"
+                                                    title="Wyłącz zaproszenia"
+                                                >
+                                                    <UserX className="w-4 h-4" />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleResolve(alert.id, 'BLOCKED_REFERRED')}
+                                                    disabled={actionLoading === alert.id}
+                                                    className="p-1.5 text-red-400 hover:bg-red-900/30 rounded"
+                                                    title="Zablokuj poleconego"
+                                                >
+                                                    <XCircle className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
 
 function Admin() {
     const navigate = useNavigate();
@@ -48,7 +296,7 @@ function Admin() {
     const [ipHistory, setIpHistory] = useState(null);
     const [historyPage, setHistoryPage] = useState(1);
 
-    // 🆕 Referral tab state
+    // Referral tab state
     const [referralStats, setReferralStats] = useState(null);
     const [referralLoading, setReferralLoading] = useState(false);
     const [referralSettings, setReferralSettings] = useState({
@@ -158,7 +406,7 @@ function Admin() {
         }
     };
 
-    // 🆕 Fetch referral data
+    // Fetch referral data
     const fetchReferralData = async () => {
         setReferralLoading(true);
         try {
@@ -178,7 +426,7 @@ function Admin() {
         }
     };
 
-    // 🆕 Fetch all referrals list
+    // Fetch all referrals list
     const fetchAllReferrals = async (page = 1, search = '') => {
         try {
             const res = await api.get(`/referrals/admin/all?page=${page}&limit=20&search=${search}`);
@@ -191,7 +439,7 @@ function Admin() {
         }
     };
 
-    // 🆕 Save referral settings
+    // Save referral settings
     const saveReferralSettings = async () => {
         setSavingReferralSettings(true);
         try {
@@ -209,6 +457,21 @@ function Admin() {
             toast.error(error.response?.data?.error || 'Błąd zapisywania ustawień');
         } finally {
             setSavingReferralSettings(false);
+        }
+    };
+
+    // 🆕 Toggle referral dla użytkownika
+    const toggleUserReferral = async (userId, disabled) => {
+        try {
+            await api.post(`/admin/users/${userId}/toggle-referral`, {
+                disabled,
+                reason: disabled ? 'Wyłączone przez admina' : null
+            });
+            toast.success(disabled ? 'Zaproszenia wyłączone' : 'Zaproszenia włączone');
+            fetchReferralData();
+        } catch (error) {
+            console.error('Error toggling referral:', error);
+            toast.error('Błąd zmiany statusu');
         }
     };
 
@@ -458,7 +721,7 @@ function Admin() {
         return true;
     });
 
-    // 🆕 Oblicz liczbę zaproszonych użytkowników
+    // Oblicz liczbę zaproszonych użytkowników
     const invitedUsersCount = referralStats?.overview?.totalReferrals || 0;
 
     if (loading) {
@@ -478,7 +741,7 @@ function Admin() {
         { id: 'payouts', label: 'Wypłaty', icon: Wallet, badge: payoutStats.pending },
         { id: 'messages', label: 'Wiadomości', icon: MessageSquare, badge: unreadCount },
         { id: 'cpm', label: 'Stawki CPM', icon: DollarSign },
-        { id: 'referrals', label: 'Referale', icon: Gift },
+        { id: 'referrals', label: 'Referale', icon: Gift, badge: referralStats?.fraudAlertStats?.pending || 0 },
         { id: 'security', label: 'Bezpieczeństwo', icon: Shield }
     ];
 
@@ -588,7 +851,7 @@ function Admin() {
                                 </div>
                                 <p className="text-xl sm:text-2xl font-bold text-green-500">${parseFloat(stats?.earnings?.platformTotal || 0).toFixed(2)}</p>
                             </div>
-                            {/* 🆕 Zaproszeni użytkownicy */}
+                            {/* Zaproszeni użytkownicy */}
                             <div className="bg-gradient-to-br from-purple-900/30 to-pink-900/30 border border-purple-700/50 rounded-xl p-4 sm:p-6">
                                 <div className="flex items-center gap-2 mb-2">
                                     <Gift className="w-4 sm:w-5 h-4 sm:h-5 text-purple-400" />
@@ -1077,7 +1340,7 @@ function Admin() {
                     </div>
                 )}
 
-                {/* 🆕 Tab: Referale */}
+                {/* Tab: Referale - ROZSZERZONE O FRAUD ALERTS */}
                 {activeTab === 'referrals' && (
                     <div className="space-y-6">
                         {referralLoading ? (
@@ -1087,7 +1350,7 @@ function Admin() {
                         ) : (
                             <>
                                 {/* Statystyki główne */}
-                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                                <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
                                     <div className="bg-gradient-to-br from-purple-900/30 to-pink-900/30 border border-purple-700/50 rounded-xl p-4 sm:p-6">
                                         <div className="flex items-center gap-2 mb-2">
                                             <Users className="w-4 sm:w-5 h-4 sm:h-5 text-purple-400" />
@@ -1124,7 +1387,36 @@ function Admin() {
                                             {referralStats?.overview?.totalCommissions || 0}
                                         </p>
                                     </div>
+                                    {/* Alerty fraudu */}
+                                    <div className={`border rounded-xl p-4 sm:p-6 ${
+                                        (referralStats?.fraudAlertStats?.pending || 0) > 0
+                                            ? 'bg-red-900/30 border-red-700/50'
+                                            : 'bg-slate-800/50 border-slate-700'
+                                    }`}>
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <AlertCircle className={`w-4 sm:w-5 h-4 sm:h-5 ${
+                                                (referralStats?.fraudAlertStats?.pending || 0) > 0 ? 'text-red-400' : 'text-slate-500'
+                                            }`} />
+                                            <span className="text-slate-400 text-xs sm:text-sm">Alerty fraudu</span>
+                                        </div>
+                                        <p className={`text-xl sm:text-2xl font-bold ${
+                                            (referralStats?.fraudAlertStats?.pending || 0) > 0 ? 'text-red-400' : 'text-slate-500'
+                                        }`}>
+                                            {referralStats?.fraudAlertStats?.pending || 0}
+                                        </p>
+                                        {(referralStats?.fraudAlertStats?.highRisk || 0) > 0 && (
+                                            <p className="text-xs text-red-400/70 mt-1">
+                                                {referralStats?.fraudAlertStats?.highRisk} wysokie ryzyko
+                                            </p>
+                                        )}
+                                    </div>
                                 </div>
+
+                                {/* SEKCJA ALERTÓW FRAUDU */}
+                                <FraudAlertsSection 
+                                    stats={referralStats?.fraudAlertStats} 
+                                    onRefresh={fetchReferralData}
+                                />
 
                                 {/* Ustawienia systemu */}
                                 <div className="bg-gradient-to-br from-purple-900/30 to-pink-900/30 border border-purple-700/50 rounded-xl p-4 sm:p-6">
@@ -1290,7 +1582,7 @@ function Admin() {
                                     </div>
                                 </div>
 
-                                {/* Top polecający */}
+                                {/* Top polecający z przyciskiem wyłączania zaproszeń */}
                                 {referralStats?.topReferrers?.length > 0 && (
                                     <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
                                         <div className="p-4 border-b border-slate-700">
@@ -1312,15 +1604,40 @@ function Admin() {
                                                             {index + 1}
                                                         </div>
                                                         <div>
-                                                            <p className="font-medium">{referrer.email}</p>
+                                                            <div className="flex items-center gap-2">
+                                                                <p className="font-medium">{referrer.email}</p>
+                                                                {referrer.referralDisabled && (
+                                                                    <span className="px-2 py-0.5 bg-red-900/50 text-red-400 text-xs rounded">
+                                                                        Ref. wyłączone
+                                                                    </span>
+                                                                )}
+                                                            </div>
                                                             <p className="text-xs text-slate-400">
                                                                 Kod: <span className="font-mono text-purple-400">{referrer.referralCode}</span>
                                                             </p>
                                                         </div>
                                                     </div>
-                                                    <div className="text-right">
-                                                        <p className="font-bold text-green-400">${referrer.earnings.toFixed(4)}</p>
-                                                        <p className="text-xs text-slate-400">{referrer.referralsCount} poleconych</p>
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="text-right">
+                                                            <p className="font-bold text-green-400">${referrer.earnings.toFixed(4)}</p>
+                                                            <p className="text-xs text-slate-400">{referrer.referralsCount} poleconych</p>
+                                                        </div>
+                                                        {/* Przycisk wyłączania zaproszeń */}
+                                                        <button
+                                                            onClick={() => toggleUserReferral(referrer.id, !referrer.referralDisabled)}
+                                                            className={`p-2 rounded-lg text-xs ${
+                                                                referrer.referralDisabled
+                                                                    ? 'bg-green-900/30 text-green-400 hover:bg-green-900/50'
+                                                                    : 'bg-red-900/30 text-red-400 hover:bg-red-900/50'
+                                                            }`}
+                                                            title={referrer.referralDisabled ? 'Włącz zaproszenia' : 'Wyłącz zaproszenia'}
+                                                        >
+                                                            {referrer.referralDisabled ? (
+                                                                <UserCheck className="w-4 h-4" />
+                                                            ) : (
+                                                                <UserX className="w-4 h-4" />
+                                                            )}
+                                                        </button>
                                                     </div>
                                                 </div>
                                             ))}
@@ -1341,7 +1658,15 @@ function Admin() {
                                             {referralStats.recentReferrals.map((referral) => (
                                                 <div key={referral.id} className="p-4 flex items-center justify-between">
                                                     <div>
-                                                        <p className="font-medium">{referral.email}</p>
+                                                        <div className="flex items-center gap-2">
+                                                            <p className="font-medium">{referral.email}</p>
+                                                            {referral.fraudFlag && (
+                                                                <span className="px-2 py-0.5 bg-red-900/50 text-red-400 text-xs rounded flex items-center gap-1">
+                                                                    <AlertCircle className="w-3 h-3" />
+                                                                    Fraud
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                         <p className="text-xs text-slate-400">
                                                             Polecony przez: <span className="text-purple-400">{referral.referredBy.email}</span>
                                                             <span className="mx-2">•</span>
@@ -1427,11 +1752,25 @@ function Admin() {
                                                             allReferrals.map((referral) => (
                                                                 <tr key={referral.id} className="hover:bg-slate-700/30">
                                                                     <td className="px-4 py-3">
-                                                                        <p className="font-medium">{referral.email}</p>
+                                                                        <div className="flex items-center gap-2">
+                                                                            <p className="font-medium">{referral.email}</p>
+                                                                            {referral.fraudFlag && (
+                                                                                <AlertCircle className="w-4 h-4 text-red-400" title={referral.fraudReason} />
+                                                                            )}
+                                                                        </div>
                                                                     </td>
                                                                     <td className="px-4 py-3">
-                                                                        <p className="text-sm">{referral.referredBy.email}</p>
-                                                                        <p className="text-xs text-purple-400 font-mono">{referral.referredBy.code}</p>
+                                                                        <div className="flex items-center gap-2">
+                                                                            <div>
+                                                                                <p className="text-sm">{referral.referredBy.email}</p>
+                                                                                <p className="text-xs text-purple-400 font-mono">{referral.referredBy.code}</p>
+                                                                            </div>
+                                                                            {referral.referredBy.referralDisabled && (
+                                                                                <span className="px-1.5 py-0.5 bg-red-900/50 text-red-400 text-[10px] rounded">
+                                                                                    OFF
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
                                                                     </td>
                                                                     <td className="px-4 py-3 text-sm text-slate-400">
                                                                         {new Date(referral.joinedAt).toLocaleDateString('pl-PL')}
