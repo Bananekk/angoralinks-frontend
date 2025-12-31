@@ -7,7 +7,7 @@ import {
     TrendingUp, Calendar, Wallet, CheckCircle, XCircle, Clock, AlertCircle,
     Mail, MessageSquare, Eye, EyeOff, Menu, X, LogOut, Globe, User,
     Search, Unlock, History, MapPin, RefreshCw, ExternalLink, Edit2, Save,
-    ChevronDown, ChevronUp, Filter, Gift, Percent, ToggleLeft, ToggleRight
+    ChevronDown, ChevronUp, Filter, Gift, Percent, ToggleLeft, ToggleRight, Ban
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../api/axios';
@@ -313,6 +313,11 @@ function Admin() {
     const [referralPagination, setReferralPagination] = useState(null);
     const [showReferralsList, setShowReferralsList] = useState(false);
 
+    // 🆕 Users search state
+    const [userSearch, setUserSearch] = useState('');
+    const [userFilter, setUserFilter] = useState('all');
+    const [actionLoadingUser, setActionLoadingUser] = useState(null);
+
     useEffect(() => {
         const user = JSON.parse(localStorage.getItem('user') || '{}');
         if (!user.isAdmin) {
@@ -460,7 +465,7 @@ function Admin() {
         }
     };
 
-    // 🆕 Toggle referral dla użytkownika
+    // Toggle referral dla użytkownika
     const toggleUserReferral = async (userId, disabled) => {
         try {
             await api.post(`/admin/users/${userId}/toggle-referral`, {
@@ -469,9 +474,47 @@ function Admin() {
             });
             toast.success(disabled ? 'Zaproszenia wyłączone' : 'Zaproszenia włączone');
             fetchReferralData();
+            fetchData(); // Odśwież listę użytkowników
         } catch (error) {
             console.error('Error toggling referral:', error);
             toast.error('Błąd zmiany statusu');
+        }
+    };
+
+    // 🆕 Wyłącz polecenia i wyzeruj zarobki
+    const disableReferralAndResetEarnings = async (userId, userEmail) => {
+        if (!confirm(`Czy na pewno chcesz wyłączyć polecenia i wyzerować zarobki z poleceń dla ${userEmail}? Ta operacja jest nieodwracalna!`)) {
+            return;
+        }
+        
+        setActionLoadingUser(userId);
+        try {
+            await api.post(`/admin/users/${userId}/disable-referral-reset-earnings`);
+            toast.success('Polecenia wyłączone i zarobki wyzerowane');
+            fetchData();
+        } catch (error) {
+            console.error('Error disabling referral:', error);
+            toast.error(error.response?.data?.message || 'Błąd operacji');
+        } finally {
+            setActionLoadingUser(null);
+        }
+    };
+
+    // 🆕 Włącz polecenia
+    const enableUserReferral = async (userId) => {
+        setActionLoadingUser(userId);
+        try {
+            await api.post(`/admin/users/${userId}/toggle-referral`, {
+                disabled: false,
+                reason: null
+            });
+            toast.success('Polecenia włączone');
+            fetchData();
+        } catch (error) {
+            console.error('Error enabling referral:', error);
+            toast.error('Błąd włączania poleceń');
+        } finally {
+            setActionLoadingUser(null);
         }
     };
 
@@ -721,6 +764,23 @@ function Admin() {
         return true;
     });
 
+    // 🆕 Filtrowanie użytkowników
+    const filteredUsers = users.filter(user => {
+        // Filtr tekstowy
+        if (userSearch) {
+            const search = userSearch.toLowerCase();
+            if (!user.email.toLowerCase().includes(search)) {
+                return false;
+            }
+        }
+        // Filtr statusu
+        if (userFilter === 'active') return user.isActive;
+        if (userFilter === 'blocked') return !user.isActive;
+        if (userFilter === 'admin') return user.isAdmin;
+        if (userFilter === 'referralDisabled') return user.referralDisabled;
+        return true;
+    });
+
     // Oblicz liczbę zaproszonych użytkowników
     const invitedUsersCount = referralStats?.overview?.totalReferrals || 0;
 
@@ -950,42 +1010,167 @@ function Admin() {
                     </div>
                 )}
 
-                {/* Tab: Użytkownicy */}
+                {/* Tab: Użytkownicy - ROZSZERZONE */}
                 {activeTab === 'users' && (
-                    <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
-                        <div className="p-4 border-b border-slate-700">
-                            <h2 className="font-semibold">Użytkownicy ({users.length})</h2>
-                        </div>
-                        <div className="divide-y divide-slate-700">
-                            {users.map(user => (
-                                <div key={user.id} className="p-4 flex items-center justify-between">
-                                    <div className="flex items-center gap-3 min-w-0">
-                                        {user.isAdmin && <Crown className="w-4 h-4 text-yellow-500 flex-shrink-0" />}
-                                        <div className="min-w-0">
-                                            <p className="truncate">{user.email}</p>
-                                            <p className="text-xs text-slate-400">
-                                                <span className="text-green-500">${parseFloat(user.balance || 0).toFixed(2)}</span>
-                                                <span className="mx-2">•</span>
-                                                {user.linksCount || user._count?.links || 0} linków
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <span className={`px-2 py-0.5 rounded text-xs ${user.isActive ? 'bg-green-900/50 text-green-400' : 'bg-red-900/50 text-red-400'}`}>
-                                            {user.isActive ? 'Aktywny' : 'Zablokowany'}
-                                        </span>
-                                        <button onClick={() => toggleUserStatus(user.id, user.isActive)} className={`p-2 rounded-lg ${user.isActive ? 'text-red-400' : 'text-green-400'}`}>
-                                            {user.isActive ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
-                                        </button>
-                                        <button onClick={() => toggleUserAdmin(user.id, user.isAdmin)} className={`p-2 rounded-lg ${user.isAdmin ? 'text-yellow-400' : 'text-slate-400'}`}>
-                                            <Crown className="w-4 h-4" />
-                                        </button>
-                                        <button onClick={() => deleteUser(user.id)} className="p-2 text-red-400 rounded-lg">
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
+                    <div className="space-y-4">
+                        {/* 🆕 Filtry i wyszukiwarka */}
+                        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
+                            <div className="flex flex-col sm:flex-row gap-3">
+                                <div className="flex-1">
+                                    <div className="relative">
+                                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                        <input
+                                            type="text"
+                                            placeholder="Szukaj po emailu..."
+                                            value={userSearch}
+                                            onChange={(e) => setUserSearch(e.target.value)}
+                                            className="w-full bg-slate-700 border border-slate-600 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:border-cyan-500"
+                                        />
                                     </div>
                                 </div>
-                            ))}
+                                <select
+                                    value={userFilter}
+                                    onChange={(e) => setUserFilter(e.target.value)}
+                                    className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm"
+                                >
+                                    <option value="all">Wszyscy</option>
+                                    <option value="active">Aktywni</option>
+                                    <option value="blocked">Zablokowani</option>
+                                    <option value="admin">Admini</option>
+                                    <option value="referralDisabled">Ref. wyłączone</option>
+                                </select>
+                                <button
+                                    onClick={fetchData}
+                                    className="p-2 bg-slate-700 hover:bg-slate-600 rounded-lg"
+                                >
+                                    <RefreshCw className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Lista użytkowników */}
+                        <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
+                            <div className="p-4 border-b border-slate-700">
+                                <h2 className="font-semibold">Użytkownicy ({filteredUsers.length})</h2>
+                            </div>
+                            <div className="divide-y divide-slate-700">
+                                {filteredUsers.map(user => (
+                                    <div key={user.id} className="p-4">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-3 min-w-0">
+                                                {user.isAdmin && <Crown className="w-4 h-4 text-yellow-500 flex-shrink-0" />}
+                                                <div className="min-w-0">
+                                                    <div className="flex items-center gap-2">
+                                                        <p className="truncate font-medium">{user.email}</p>
+                                                        {user.referralDisabled && (
+                                                            <span className="px-2 py-0.5 bg-orange-900/50 text-orange-400 text-xs rounded flex items-center gap-1">
+                                                                <Ban className="w-3 h-3" />
+                                                                Ref. OFF
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-xs text-slate-400">
+                                                        <span className="text-green-500">${parseFloat(user.balance || 0).toFixed(2)}</span>
+                                                        <span className="mx-2">•</span>
+                                                        {user.linksCount || user._count?.links || 0} linków
+                                                        {user.referralEarnings > 0 && (
+                                                            <>
+                                                                <span className="mx-2">•</span>
+                                                                <span className="text-purple-400">Ref: ${parseFloat(user.referralEarnings || 0).toFixed(4)}</span>
+                                                            </>
+                                                        )}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-1 sm:gap-2 flex-wrap justify-end">
+                                                <span className={`px-2 py-0.5 rounded text-xs ${user.isActive ? 'bg-green-900/50 text-green-400' : 'bg-red-900/50 text-red-400'}`}>
+                                                    {user.isActive ? 'Aktywny' : 'Zablokowany'}
+                                                </span>
+                                                
+                                                {/* Przyciski akcji */}
+                                                <div className="flex items-center gap-1">
+                                                    {/* Status aktywności */}
+                                                    <button 
+                                                        onClick={() => toggleUserStatus(user.id, user.isActive)} 
+                                                        className={`p-2 rounded-lg ${user.isActive ? 'text-red-400 hover:bg-red-900/30' : 'text-green-400 hover:bg-green-900/30'}`}
+                                                        title={user.isActive ? 'Zablokuj użytkownika' : 'Odblokuj użytkownika'}
+                                                    >
+                                                        {user.isActive ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
+                                                    </button>
+                                                    
+                                                    {/* Admin toggle */}
+                                                    <button 
+                                                        onClick={() => toggleUserAdmin(user.id, user.isAdmin)} 
+                                                        className={`p-2 rounded-lg ${user.isAdmin ? 'text-yellow-400 hover:bg-yellow-900/30' : 'text-slate-400 hover:bg-slate-700'}`}
+                                                        title={user.isAdmin ? 'Usuń uprawnienia admina' : 'Nadaj uprawnienia admina'}
+                                                    >
+                                                        <Crown className="w-4 h-4" />
+                                                    </button>
+                                                    
+                                                    {/* 🆕 Referral toggle */}
+                                                    {user.referralDisabled ? (
+                                                        <button 
+                                                            onClick={() => enableUserReferral(user.id)}
+                                                            disabled={actionLoadingUser === user.id}
+                                                            className="p-2 rounded-lg text-green-400 hover:bg-green-900/30 disabled:opacity-50"
+                                                            title="Włącz polecenia"
+                                                        >
+                                                            {actionLoadingUser === user.id ? (
+                                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                                            ) : (
+                                                                <Gift className="w-4 h-4" />
+                                                            )}
+                                                        </button>
+                                                    ) : (
+                                                        <button 
+                                                            onClick={() => disableReferralAndResetEarnings(user.id, user.email)}
+                                                            disabled={actionLoadingUser === user.id}
+                                                            className="p-2 rounded-lg text-orange-400 hover:bg-orange-900/30 disabled:opacity-50"
+                                                            title="Wyłącz polecenia i wyzeruj zarobki"
+                                                        >
+                                                            {actionLoadingUser === user.id ? (
+                                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                                            ) : (
+                                                                <Ban className="w-4 h-4" />
+                                                            )}
+                                                        </button>
+                                                    )}
+                                                    
+                                                    {/* Usuń */}
+                                                    <button 
+                                                        onClick={() => deleteUser(user.id)} 
+                                                        className="p-2 text-red-400 rounded-lg hover:bg-red-900/30"
+                                                        title="Usuń użytkownika"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        {/* 🆕 Dodatkowe info jeśli referral disabled */}
+                                        {user.referralDisabled && user.referralDisabledReason && (
+                                            <div className="mt-2 p-2 bg-orange-900/20 border border-orange-700/30 rounded-lg">
+                                                <p className="text-xs text-orange-400">
+                                                    <span className="font-medium">Powód blokady poleceń:</span> {user.referralDisabledReason}
+                                                </p>
+                                                {user.referralDisabledAt && (
+                                                    <p className="text-xs text-orange-400/70">
+                                                        Zablokowano: {new Date(user.referralDisabledAt).toLocaleString('pl-PL')}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                                
+                                {filteredUsers.length === 0 && (
+                                    <div className="p-12 text-center">
+                                        <Users className="w-12 h-12 text-slate-600 mx-auto mb-4" />
+                                        <p className="text-slate-400">Brak użytkowników spełniających kryteria</p>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
                 )}
@@ -1173,6 +1358,10 @@ function Admin() {
                                         {/* Totals */}
                                         <div className="p-4 bg-slate-700/30 grid grid-cols-2 sm:grid-cols-4 gap-4">
                                             <div>
+                                                <p className="text-xs text-slate-400">Wizyty</p>
+                                                <p className="text-lg font-bold">{earningsByCountry.totals?.totalVisits || 0}</p>
+                                            </div>
+                                                                                        <div>
                                                 <p className="text-xs text-slate-400">Wizyty</p>
                                                 <p className="text-lg font-bold">{earningsByCountry.totals?.totalVisits || 0}</p>
                                             </div>
