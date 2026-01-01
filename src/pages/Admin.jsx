@@ -519,12 +519,20 @@ function Admin() {
     // 🆕 ==================== FUNKCJE 2FA ====================
     
     const get2FAStatus = (user) => {
+    // Obsłuż oba formaty - bezpośredni i zagnieżdżony
+    if (user.twoFactor) {
         return {
-            enabled: user.twoFactorEnabled || false,
-            forced: user.twoFactorRequired || false,
-            recommended: user.twoFactorRecommended || false
+            enabled: user.twoFactor.enabled || false,
+            forced: user.twoFactor.required || false,
+            recommended: user.twoFactor.recommended || false
         };
+    }
+    return {
+        enabled: user.twoFactorEnabled || false,
+        forced: user.twoFactorRequired || false,
+        recommended: user.twoFactorRecommended || false
     };
+};
     
     const recommend2FA = async (userId, userEmail) => {
         setTwoFALoading(userId);
@@ -614,42 +622,45 @@ function Admin() {
     };
     
     const TwoFABadge = ({ user }) => {
-        const status = get2FAStatus(user);
-        
-        if (status.enabled) {
-            return (
-                <span className="px-2 py-0.5 bg-green-900/50 text-green-400 text-xs rounded flex items-center gap-1" title="2FA aktywne">
-                    <ShieldCheck className="w-3 h-3" />
-                    2FA
-                </span>
-            );
-        }
-        
-        if (status.forced) {
-            return (
-                <span className="px-2 py-0.5 bg-red-900/50 text-red-400 text-xs rounded flex items-center gap-1" title="2FA wymagane (nieskonfigurowane)">
-                    <ShieldAlert className="w-3 h-3" />
-                    2FA!
-                </span>
-            );
-        }
-        
-        if (status.recommended) {
-            return (
-                <span className="px-2 py-0.5 bg-yellow-900/50 text-yellow-400 text-xs rounded flex items-center gap-1" title="Zalecono 2FA">
-                    <ShieldOff className="w-3 h-3" />
-                    2FA?
-                </span>
-            );
-        }
-        
+    // Obsłuż oba formaty danych
+    const enabled = user.twoFactor?.enabled || user.twoFactorEnabled || false;
+    const forced = user.twoFactor?.required || user.twoFactorRequired || false;
+    const recommended = user.twoFactor?.recommended || user.twoFactorRecommended || false;
+    
+    if (enabled) {
         return (
-            <span className="px-2 py-0.5 bg-slate-700/50 text-slate-400 text-xs rounded flex items-center gap-1" title="Brak 2FA">
-                <ShieldOff className="w-3 h-3" />
-                -
+            <span className="px-2 py-0.5 bg-green-900/50 text-green-400 text-xs rounded flex items-center gap-1" title="2FA aktywne">
+                <ShieldCheck className="w-3 h-3" />
+                2FA
             </span>
         );
-    };
+    }
+    
+    if (forced) {
+        return (
+            <span className="px-2 py-0.5 bg-red-900/50 text-red-400 text-xs rounded flex items-center gap-1" title="2FA wymagane (nieskonfigurowane)">
+                <ShieldAlert className="w-3 h-3" />
+                2FA!
+            </span>
+        );
+    }
+    
+    if (recommended) {
+        return (
+            <span className="px-2 py-0.5 bg-yellow-900/50 text-yellow-400 text-xs rounded flex items-center gap-1" title="Zalecono 2FA">
+                <ShieldOff className="w-3 h-3" />
+                2FA?
+            </span>
+        );
+    }
+    
+    return (
+        <span className="px-2 py-0.5 bg-slate-700/50 text-slate-400 text-xs rounded flex items-center gap-1" title="Brak 2FA">
+            <ShieldOff className="w-3 h-3" />
+            -
+        </span>
+    );
+};
 
     // ==================== POZOSTAŁE FUNKCJE ====================
 
@@ -1040,7 +1051,7 @@ function Admin() {
                             <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 sm:p-6">
                                 <div className="flex items-center gap-2 mb-2">
                                     <DollarSign className="w-4 sm:w-5 h-4 sm:h-5 text-green-500" />
-                                    <span className="text-slate-400 text-xs sm:text-sm">Wypłacono</span>
+                                    <span className="text-slate-400 text-xs sm:text-sm">Zarobek Platformy</span>
                                 </div>
                                 <p className="text-xl sm:text-2xl font-bold text-green-500">${parseFloat(stats?.earnings?.platformTotal || 0).toFixed(2)}</p>
                             </div>
@@ -1191,7 +1202,7 @@ function Admin() {
                                     <span className="text-slate-400 text-xs">2FA aktywne</span>
                                 </div>
                                 <p className="text-xl font-bold text-green-500">
-                                    {users.filter(u => u.twoFactorEnabled).length}
+                                    {users.filter(u => u.twoFactor?.enabled || u.twoFactorEnabled).length}
                                 </p>
                             </div>
                             <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
@@ -1200,7 +1211,7 @@ function Admin() {
                                     <span className="text-slate-400 text-xs">Bez 2FA</span>
                                 </div>
                                 <p className="text-xl font-bold">
-                                    {users.filter(u => !u.twoFactorEnabled).length}
+                                    {users.filter(u => !(u.twoFactor?.enabled || u.twoFactorEnabled)).length}
                                 </p>
                             </div>
                             <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
@@ -1209,7 +1220,7 @@ function Admin() {
                                     <span className="text-slate-400 text-xs">2FA wymuszone</span>
                                 </div>
                                 <p className="text-xl font-bold text-red-500">
-                                    {users.filter(u => u.twoFactorRequired && !u.twoFactorEnabled).length}
+                                    {users.filter(u => (u.twoFactor?.required || u.twoFactorRequired) && !(u.twoFactor?.enabled || u.twoFactorEnabled)).length}
                                 </p>
                             </div>
                             <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
@@ -1219,7 +1230,7 @@ function Admin() {
                                 </div>
                                 <p className="text-xl font-bold text-cyan-500">
                                     {users.length > 0 
-                                        ? Math.round((users.filter(u => u.twoFactorEnabled).length / users.length) * 100) 
+                                        ? Math.round((users.filter(u => u.twoFactor?.enabled || u.twoFactorEnabled).length / users.length) * 100) 
                                         : 0}%
                                 </p>
                             </div>
@@ -1278,7 +1289,7 @@ function Admin() {
                                                 {/* Przyciski akcji */}
                                                 <div className="flex items-center gap-1">
                                                     {/* 🆕 Przyciski 2FA */}
-                                                    {!user.twoFactorEnabled && (
+                                                    {!(user.twoFactor?.enabled || user.twoFactorEnabled) && (
                                                         <>
                                                             {/* Zaleć 2FA */}
                                                             <button 
@@ -1295,7 +1306,7 @@ function Admin() {
                                                             </button>
                                                             
                                                             {/* Wymuś / Usuń wymóg 2FA */}
-                                                            {!user.twoFactorRequired ? (
+                                                            {!(user.twoFactor?.required || user.twoFactorRequired) ? (
                                                                 <button 
                                                                     onClick={() => force2FA(user.id, user.email)}
                                                                     disabled={twoFALoading === user.id}
@@ -1324,9 +1335,9 @@ function Admin() {
                                                             )}
                                                         </>
                                                     )}
-                                                    
+
                                                     {/* Resetuj 2FA (tylko jeśli włączone) */}
-                                                    {user.twoFactorEnabled && (
+                                                    {(user.twoFactor?.enabled || user.twoFactorEnabled) && (
                                                         <button 
                                                             onClick={() => reset2FA(user.id, user.email)}
                                                             disabled={twoFALoading === user.id}
