@@ -1,4 +1,4 @@
-// Admin.jsx - KOMPLETNY Z ZAKŁADKĄ REFERALI I FRAUD ALERTS
+// Admin.jsx - KOMPLETNY Z 2FA, REFERALAMI I FRAUD ALERTS
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
@@ -7,7 +7,8 @@ import {
     TrendingUp, Calendar, Wallet, CheckCircle, XCircle, Clock, AlertCircle,
     Mail, MessageSquare, Eye, EyeOff, Menu, X, LogOut, Globe, User,
     Search, Unlock, History, MapPin, RefreshCw, ExternalLink, Edit2, Save,
-    ChevronDown, ChevronUp, Filter, Gift, Percent, ToggleLeft, ToggleRight, Ban
+    ChevronDown, ChevronUp, Filter, Gift, Percent, ToggleLeft, ToggleRight, Ban,
+    Key, ShieldCheck, ShieldOff, ShieldAlert, Send
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../api/axios';
@@ -120,7 +121,6 @@ const FraudAlertsSection = ({ stats, onRefresh }) => {
 
             {showAlerts && (
                 <div className="border-t border-slate-700">
-                    {/* Stats */}
                     {stats && (
                         <div className="p-4 bg-slate-700/30 grid grid-cols-2 sm:grid-cols-5 gap-3">
                             <div className="text-center">
@@ -146,7 +146,6 @@ const FraudAlertsSection = ({ stats, onRefresh }) => {
                         </div>
                     )}
 
-                    {/* Filters */}
                     <div className="p-4 border-t border-slate-700 flex items-center gap-2">
                         <Filter className="w-4 h-4 text-slate-400" />
                         <select
@@ -168,7 +167,6 @@ const FraudAlertsSection = ({ stats, onRefresh }) => {
                         </button>
                     </div>
 
-                    {/* Alerts list */}
                     <div className="divide-y divide-slate-700 max-h-96 overflow-y-auto">
                         {loading ? (
                             <div className="p-8 text-center">
@@ -313,10 +311,13 @@ function Admin() {
     const [referralPagination, setReferralPagination] = useState(null);
     const [showReferralsList, setShowReferralsList] = useState(false);
 
-    // 🆕 Users search state
+    // Users search state
     const [userSearch, setUserSearch] = useState('');
     const [userFilter, setUserFilter] = useState('all');
     const [actionLoadingUser, setActionLoadingUser] = useState(null);
+
+    // 🆕 2FA state
+    const [twoFALoading, setTwoFALoading] = useState(null);
 
     useEffect(() => {
         const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -411,7 +412,6 @@ function Admin() {
         }
     };
 
-    // Fetch referral data
     const fetchReferralData = async () => {
         setReferralLoading(true);
         try {
@@ -431,7 +431,6 @@ function Admin() {
         }
     };
 
-    // Fetch all referrals list
     const fetchAllReferrals = async (page = 1, search = '') => {
         try {
             const res = await api.get(`/referrals/admin/all?page=${page}&limit=20&search=${search}`);
@@ -444,7 +443,6 @@ function Admin() {
         }
     };
 
-    // Save referral settings
     const saveReferralSettings = async () => {
         setSavingReferralSettings(true);
         try {
@@ -465,7 +463,6 @@ function Admin() {
         }
     };
 
-    // Toggle referral dla użytkownika
     const toggleUserReferral = async (userId, disabled) => {
         try {
             await api.post(`/admin/users/${userId}/toggle-referral`, {
@@ -474,14 +471,13 @@ function Admin() {
             });
             toast.success(disabled ? 'Zaproszenia wyłączone' : 'Zaproszenia włączone');
             fetchReferralData();
-            fetchData(); // Odśwież listę użytkowników
+            fetchData();
         } catch (error) {
             console.error('Error toggling referral:', error);
             toast.error('Błąd zmiany statusu');
         }
     };
 
-    // 🆕 Wyłącz polecenia i wyzeruj zarobki
     const disableReferralAndResetEarnings = async (userId, userEmail) => {
         if (!confirm(`Czy na pewno chcesz wyłączyć polecenia i wyzerować zarobki z poleceń dla ${userEmail}?\n\n` +
         `⚠️ UWAGA:\n` +
@@ -503,7 +499,6 @@ function Admin() {
         }
     };
 
-    // 🆕 Włącz polecenia
     const enableUserReferral = async (userId) => {
         setActionLoadingUser(userId);
         try {
@@ -520,6 +515,143 @@ function Admin() {
             setActionLoadingUser(null);
         }
     };
+
+    // 🆕 ==================== FUNKCJE 2FA ====================
+    
+    const get2FAStatus = (user) => {
+        return {
+            enabled: user.twoFactorEnabled || false,
+            forced: user.twoFactorRequired || false,
+            recommended: user.twoFactorRecommended || false
+        };
+    };
+    
+    const recommend2FA = async (userId, userEmail) => {
+        setTwoFALoading(userId);
+        try {
+            await api.post(`/admin/users/${userId}/2fa/recommend`);
+            toast.success(`Wysłano zalecenie 2FA do ${userEmail}`);
+            const usersRes = await api.get('/admin/users');
+            setUsers(usersRes.data.users || usersRes.data || []);
+        } catch (error) {
+            console.error('Error recommending 2FA:', error);
+            toast.error(error.response?.data?.message || 'Błąd wysyłania zalecenia');
+        } finally {
+            setTwoFALoading(null);
+        }
+    };
+    
+    const force2FA = async (userId, userEmail) => {
+        if (!confirm(`Czy na pewno chcesz wymusić 2FA dla ${userEmail}?\n\nUżytkownik będzie musiał skonfigurować 2FA przy następnym logowaniu.`)) {
+            return;
+        }
+        
+        setTwoFALoading(userId);
+        try {
+            await api.post(`/admin/users/${userId}/2fa/force`);
+            toast.success(`2FA wymuszone dla ${userEmail}`);
+            const usersRes = await api.get('/admin/users');
+            setUsers(usersRes.data.users || usersRes.data || []);
+        } catch (error) {
+            console.error('Error forcing 2FA:', error);
+            toast.error(error.response?.data?.message || 'Błąd wymuszania 2FA');
+        } finally {
+            setTwoFALoading(null);
+        }
+    };
+    
+    const removeForce2FA = async (userId, userEmail) => {
+        if (!confirm(`Czy na pewno chcesz usunąć wymóg 2FA dla ${userEmail}?`)) {
+            return;
+        }
+        
+        setTwoFALoading(userId);
+        try {
+            await api.post(`/admin/users/${userId}/2fa/remove-force`);
+            toast.success(`Wymóg 2FA usunięty dla ${userEmail}`);
+            const usersRes = await api.get('/admin/users');
+            setUsers(usersRes.data.users || usersRes.data || []);
+        } catch (error) {
+            console.error('Error removing 2FA force:', error);
+            toast.error(error.response?.data?.message || 'Błąd usuwania wymogu');
+        } finally {
+            setTwoFALoading(null);
+        }
+    };
+    
+    const reset2FA = async (userId, userEmail) => {
+        if (!confirm(`Czy na pewno chcesz zresetować 2FA dla ${userEmail}?\n\n⚠️ UWAGA: Użytkownik straci dostęp do 2FA i będzie musiał skonfigurować je ponownie.`)) {
+            return;
+        }
+        
+        setTwoFALoading(userId);
+        try {
+            await api.post(`/admin/users/${userId}/2fa/reset`);
+            toast.success(`2FA zresetowane dla ${userEmail}`);
+            const usersRes = await api.get('/admin/users');
+            setUsers(usersRes.data.users || usersRes.data || []);
+        } catch (error) {
+            console.error('Error resetting 2FA:', error);
+            toast.error(error.response?.data?.message || 'Błąd resetowania 2FA');
+        } finally {
+            setTwoFALoading(null);
+        }
+    };
+
+    const forceAll2FA = async () => {
+        if (!confirm('Czy na pewno chcesz wymusić 2FA dla WSZYSTKICH użytkowników bez 2FA?\n\nWszyscy użytkownicy będą musieli skonfigurować 2FA przy następnym logowaniu.')) {
+            return;
+        }
+        
+        try {
+            const res = await api.post('/admin/2fa/force-all');
+            toast.success(res.data.message || 'Wymuszono 2FA dla wszystkich');
+            fetchData();
+        } catch (error) {
+            console.error('Error forcing 2FA for all:', error);
+            toast.error(error.response?.data?.message || 'Błąd');
+        }
+    };
+    
+    const TwoFABadge = ({ user }) => {
+        const status = get2FAStatus(user);
+        
+        if (status.enabled) {
+            return (
+                <span className="px-2 py-0.5 bg-green-900/50 text-green-400 text-xs rounded flex items-center gap-1" title="2FA aktywne">
+                    <ShieldCheck className="w-3 h-3" />
+                    2FA
+                </span>
+            );
+        }
+        
+        if (status.forced) {
+            return (
+                <span className="px-2 py-0.5 bg-red-900/50 text-red-400 text-xs rounded flex items-center gap-1" title="2FA wymagane (nieskonfigurowane)">
+                    <ShieldAlert className="w-3 h-3" />
+                    2FA!
+                </span>
+            );
+        }
+        
+        if (status.recommended) {
+            return (
+                <span className="px-2 py-0.5 bg-yellow-900/50 text-yellow-400 text-xs rounded flex items-center gap-1" title="Zalecono 2FA">
+                    <ShieldOff className="w-3 h-3" />
+                    2FA?
+                </span>
+            );
+        }
+        
+        return (
+            <span className="px-2 py-0.5 bg-slate-700/50 text-slate-400 text-xs rounded flex items-center gap-1" title="Brak 2FA">
+                <ShieldOff className="w-3 h-3" />
+                -
+            </span>
+        );
+    };
+
+    // ==================== POZOSTAŁE FUNKCJE ====================
 
     const updateCpmRate = async (countryCode, newBaseCpm) => {
         try {
@@ -756,7 +888,6 @@ function Admin() {
 
     const formatDate = (date) => new Date(date).toLocaleString('pl-PL');
 
-    // Filtrowanie stawek CPM
     const filteredCpmRates = cpmRates.filter(rate => {
         if (cpmFilter.tier && rate.tier !== cpmFilter.tier) return false;
         if (cpmFilter.search) {
@@ -767,24 +898,26 @@ function Admin() {
         return true;
     });
 
-    // 🆕 Filtrowanie użytkowników
+    // 🆕 Filtrowanie użytkowników z 2FA
     const filteredUsers = users.filter(user => {
-        // Filtr tekstowy
         if (userSearch) {
             const search = userSearch.toLowerCase();
             if (!user.email.toLowerCase().includes(search)) {
                 return false;
             }
         }
-        // Filtr statusu
-        if (userFilter === 'active') return user.isActive;
-        if (userFilter === 'blocked') return !user.isActive;
-        if (userFilter === 'admin') return user.isAdmin;
-        if (userFilter === 'referralDisabled') return user.referralDisabled;
-        return true;
+        switch (userFilter) {
+            case 'active': return user.isActive;
+            case 'blocked': return !user.isActive;
+            case 'admin': return user.isAdmin;
+            case 'referralDisabled': return user.referralDisabled;
+            case '2fa_enabled': return user.twoFactorEnabled;
+            case '2fa_disabled': return !user.twoFactorEnabled;
+            case '2fa_forced': return user.twoFactorRequired && !user.twoFactorEnabled;
+            default: return true;
+        }
     });
 
-    // Oblicz liczbę zaproszonych użytkowników
     const invitedUsersCount = referralStats?.overview?.totalReferrals || 0;
 
     if (loading) {
@@ -806,9 +939,7 @@ function Admin() {
         { id: 'cpm', label: 'Stawki CPM', icon: DollarSign },
         { id: 'referrals', label: 'Referale', icon: Gift, badge: referralStats?.fraudAlertStats?.pending || 0 },
         { id: 'security', label: 'Bezpieczeństwo', icon: Shield }
-    ];
-
-    return (
+    ];    return (
         <div className="min-h-screen bg-slate-900 text-slate-100">
             {/* Header */}
             <header className="border-b border-slate-800 bg-slate-900/95 backdrop-blur-sm sticky top-0 z-50">
@@ -882,7 +1013,6 @@ function Admin() {
                 {/* Tab: Statystyki */}
                 {activeTab === 'stats' && (
                     <div className="space-y-6">
-                        {/* Główne statystyki */}
                         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
                             <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 sm:p-6">
                                 <div className="flex items-center gap-2 mb-2">
@@ -914,7 +1044,6 @@ function Admin() {
                                 </div>
                                 <p className="text-xl sm:text-2xl font-bold text-green-500">${parseFloat(stats?.earnings?.platformTotal || 0).toFixed(2)}</p>
                             </div>
-                            {/* Zaproszeni użytkownicy */}
                             <div className="bg-gradient-to-br from-purple-900/30 to-pink-900/30 border border-purple-700/50 rounded-xl p-4 sm:p-6">
                                 <div className="flex items-center gap-2 mb-2">
                                     <Gift className="w-4 sm:w-5 h-4 sm:h-5 text-purple-400" />
@@ -1013,10 +1142,10 @@ function Admin() {
                     </div>
                 )}
 
-                {/* Tab: Użytkownicy - ROZSZERZONE */}
+                {/* Tab: Użytkownicy - Z 2FA */}
                 {activeTab === 'users' && (
                     <div className="space-y-4">
-                        {/* 🆕 Filtry i wyszukiwarka */}
+                        {/* Filtry i wyszukiwarka */}
                         <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
                             <div className="flex flex-col sm:flex-row gap-3">
                                 <div className="flex-1">
@@ -1041,6 +1170,9 @@ function Admin() {
                                     <option value="blocked">Zablokowani</option>
                                     <option value="admin">Admini</option>
                                     <option value="referralDisabled">Ref. wyłączone</option>
+                                    <option value="2fa_enabled">2FA włączone</option>
+                                    <option value="2fa_disabled">Bez 2FA</option>
+                                    <option value="2fa_forced">2FA wymuszone</option>
                                 </select>
                                 <button
                                     onClick={fetchData}
@@ -1051,10 +1183,59 @@ function Admin() {
                             </div>
                         </div>
 
+                        {/* 🆕 Statystyki 2FA */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <ShieldCheck className="w-4 h-4 text-green-500" />
+                                    <span className="text-slate-400 text-xs">2FA aktywne</span>
+                                </div>
+                                <p className="text-xl font-bold text-green-500">
+                                    {users.filter(u => u.twoFactorEnabled).length}
+                                </p>
+                            </div>
+                            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <ShieldOff className="w-4 h-4 text-slate-400" />
+                                    <span className="text-slate-400 text-xs">Bez 2FA</span>
+                                </div>
+                                <p className="text-xl font-bold">
+                                    {users.filter(u => !u.twoFactorEnabled).length}
+                                </p>
+                            </div>
+                            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <ShieldAlert className="w-4 h-4 text-red-500" />
+                                    <span className="text-slate-400 text-xs">2FA wymuszone</span>
+                                </div>
+                                <p className="text-xl font-bold text-red-500">
+                                    {users.filter(u => u.twoFactorRequired && !u.twoFactorEnabled).length}
+                                </p>
+                            </div>
+                            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <Percent className="w-4 h-4 text-cyan-500" />
+                                    <span className="text-slate-400 text-xs">% z 2FA</span>
+                                </div>
+                                <p className="text-xl font-bold text-cyan-500">
+                                    {users.length > 0 
+                                        ? Math.round((users.filter(u => u.twoFactorEnabled).length / users.length) * 100) 
+                                        : 0}%
+                                </p>
+                            </div>
+                        </div>
+
                         {/* Lista użytkowników */}
                         <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
-                            <div className="p-4 border-b border-slate-700">
+                            <div className="p-4 border-b border-slate-700 flex items-center justify-between flex-wrap gap-2">
                                 <h2 className="font-semibold">Użytkownicy ({filteredUsers.length})</h2>
+                                <button
+                                    onClick={forceAll2FA}
+                                    className="px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg text-sm flex items-center gap-2"
+                                >
+                                    <ShieldAlert className="w-4 h-4" />
+                                    <span className="hidden sm:inline">Wymuś 2FA dla wszystkich</span>
+                                </button>
                             </div>
                             <div className="divide-y divide-slate-700">
                                 {filteredUsers.map(user => (
@@ -1063,8 +1244,12 @@ function Admin() {
                                             <div className="flex items-center gap-3 min-w-0">
                                                 {user.isAdmin && <Crown className="w-4 h-4 text-yellow-500 flex-shrink-0" />}
                                                 <div className="min-w-0">
-                                                    <div className="flex items-center gap-2">
+                                                    <div className="flex items-center gap-2 flex-wrap">
                                                         <p className="truncate font-medium">{user.email}</p>
+                                                        
+                                                        {/* 🆕 Badge 2FA */}
+                                                        <TwoFABadge user={user} />
+                                                        
                                                         {user.referralDisabled && (
                                                             <span className="px-2 py-0.5 bg-orange-900/50 text-orange-400 text-xs rounded flex items-center gap-1">
                                                                 <Ban className="w-3 h-3" />
@@ -1092,25 +1277,71 @@ function Admin() {
                                                 
                                                 {/* Przyciski akcji */}
                                                 <div className="flex items-center gap-1">
-                                                    {/* Status aktywności */}
-                                                    <button 
-                                                        onClick={() => toggleUserStatus(user.id, user.isActive)} 
-                                                        className={`p-2 rounded-lg ${user.isActive ? 'text-red-400 hover:bg-red-900/30' : 'text-green-400 hover:bg-green-900/30'}`}
-                                                        title={user.isActive ? 'Zablokuj użytkownika' : 'Odblokuj użytkownika'}
-                                                    >
-                                                        {user.isActive ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
-                                                    </button>
+                                                    {/* 🆕 Przyciski 2FA */}
+                                                    {!user.twoFactorEnabled && (
+                                                        <>
+                                                            {/* Zaleć 2FA */}
+                                                            <button 
+                                                                onClick={() => recommend2FA(user.id, user.email)}
+                                                                disabled={twoFALoading === user.id}
+                                                                className="p-2 rounded-lg text-blue-400 hover:bg-blue-900/30 disabled:opacity-50"
+                                                                title="Wyślij zalecenie włączenia 2FA"
+                                                            >
+                                                                {twoFALoading === user.id ? (
+                                                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                                                ) : (
+                                                                    <Send className="w-4 h-4" />
+                                                                )}
+                                                            </button>
+                                                            
+                                                            {/* Wymuś / Usuń wymóg 2FA */}
+                                                            {!user.twoFactorRequired ? (
+                                                                <button 
+                                                                    onClick={() => force2FA(user.id, user.email)}
+                                                                    disabled={twoFALoading === user.id}
+                                                                    className="p-2 rounded-lg text-orange-400 hover:bg-orange-900/30 disabled:opacity-50"
+                                                                    title="Wymuś 2FA"
+                                                                >
+                                                                    {twoFALoading === user.id ? (
+                                                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                                                    ) : (
+                                                                        <ShieldAlert className="w-4 h-4" />
+                                                                    )}
+                                                                </button>
+                                                            ) : (
+                                                                <button 
+                                                                    onClick={() => removeForce2FA(user.id, user.email)}
+                                                                    disabled={twoFALoading === user.id}
+                                                                    className="p-2 rounded-lg text-green-400 hover:bg-green-900/30 disabled:opacity-50"
+                                                                    title="Usuń wymóg 2FA"
+                                                                >
+                                                                    {twoFALoading === user.id ? (
+                                                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                                                    ) : (
+                                                                        <ShieldOff className="w-4 h-4" />
+                                                                    )}
+                                                                </button>
+                                                            )}
+                                                        </>
+                                                    )}
                                                     
-                                                    {/* Admin toggle */}
-                                                    <button 
-                                                        onClick={() => toggleUserAdmin(user.id, user.isAdmin)} 
-                                                        className={`p-2 rounded-lg ${user.isAdmin ? 'text-yellow-400 hover:bg-yellow-900/30' : 'text-slate-400 hover:bg-slate-700'}`}
-                                                        title={user.isAdmin ? 'Usuń uprawnienia admina' : 'Nadaj uprawnienia admina'}
-                                                    >
-                                                        <Crown className="w-4 h-4" />
-                                                    </button>
+                                                    {/* Resetuj 2FA (tylko jeśli włączone) */}
+                                                    {user.twoFactorEnabled && (
+                                                        <button 
+                                                            onClick={() => reset2FA(user.id, user.email)}
+                                                            disabled={twoFALoading === user.id}
+                                                            className="p-2 rounded-lg text-red-400 hover:bg-red-900/30 disabled:opacity-50"
+                                                            title="Resetuj 2FA"
+                                                        >
+                                                            {twoFALoading === user.id ? (
+                                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                                            ) : (
+                                                                <Key className="w-4 h-4" />
+                                                            )}
+                                                        </button>
+                                                    )}
                                                     
-                                                    {/* 🆕 Referral toggle */}
+                                                    {/* Referral toggle */}
                                                     {user.referralDisabled ? (
                                                         <button 
                                                             onClick={() => enableUserReferral(user.id)}
@@ -1139,6 +1370,24 @@ function Admin() {
                                                         </button>
                                                     )}
                                                     
+                                                    {/* Status aktywności */}
+                                                    <button 
+                                                        onClick={() => toggleUserStatus(user.id, user.isActive)} 
+                                                        className={`p-2 rounded-lg ${user.isActive ? 'text-red-400 hover:bg-red-900/30' : 'text-green-400 hover:bg-green-900/30'}`}
+                                                        title={user.isActive ? 'Zablokuj użytkownika' : 'Odblokuj użytkownika'}
+                                                    >
+                                                        {user.isActive ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
+                                                    </button>
+                                                    
+                                                    {/* Admin toggle */}
+                                                    <button 
+                                                        onClick={() => toggleUserAdmin(user.id, user.isAdmin)} 
+                                                        className={`p-2 rounded-lg ${user.isAdmin ? 'text-yellow-400 hover:bg-yellow-900/30' : 'text-slate-400 hover:bg-slate-700'}`}
+                                                        title={user.isAdmin ? 'Usuń uprawnienia admina' : 'Nadaj uprawnienia admina'}
+                                                    >
+                                                        <Crown className="w-4 h-4" />
+                                                    </button>
+                                                    
                                                     {/* Usuń */}
                                                     <button 
                                                         onClick={() => deleteUser(user.id)} 
@@ -1151,7 +1400,7 @@ function Admin() {
                                             </div>
                                         </div>
                                         
-                                        {/* 🆕 Dodatkowe info jeśli referral disabled */}
+                                        {/* Info o blokadzie referral */}
                                         {user.referralDisabled && user.referralDisabledReason && (
                                             <div className="mt-2 p-2 bg-orange-900/20 border border-orange-700/30 rounded-lg">
                                                 <p className="text-xs text-orange-400">
@@ -1318,7 +1567,6 @@ function Admin() {
                 {/* Tab: Stawki CPM */}
                 {activeTab === 'cpm' && (
                     <div className="space-y-6">
-                        {/* Konfiguracja systemu */}
                         {cpmConfig && (
                             <div className="bg-gradient-to-br from-cyan-900/30 to-blue-900/30 border border-cyan-700/50 rounded-xl p-4 sm:p-6">
                                 <h3 className="font-semibold text-white mb-4 flex items-center gap-2">
@@ -1342,7 +1590,6 @@ function Admin() {
                             </div>
                         )}
 
-                        {/* Statystyki zarobków per kraj */}
                         {earningsByCountry && (
                             <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
                                 <button 
@@ -1358,13 +1605,8 @@ function Admin() {
                                 
                                 {showEarningsStats && (
                                     <div className="border-t border-slate-700">
-                                        {/* Totals */}
                                         <div className="p-4 bg-slate-700/30 grid grid-cols-2 sm:grid-cols-4 gap-4">
                                             <div>
-                                                <p className="text-xs text-slate-400">Wizyty</p>
-                                                <p className="text-lg font-bold">{earningsByCountry.totals?.totalVisits || 0}</p>
-                                            </div>
-                                                                                        <div>
                                                 <p className="text-xs text-slate-400">Wizyty</p>
                                                 <p className="text-lg font-bold">{earningsByCountry.totals?.totalVisits || 0}</p>
                                             </div>
@@ -1382,7 +1624,6 @@ function Admin() {
                                             </div>
                                         </div>
                                         
-                                        {/* Countries list */}
                                         <div className="max-h-64 overflow-y-auto divide-y divide-slate-700">
                                             {earningsByCountry.countries?.slice(0, 10).map(country => (
                                                 <div key={country.country} className="p-3 flex items-center justify-between">
@@ -1403,7 +1644,6 @@ function Admin() {
                             </div>
                         )}
 
-                        {/* Filtry i tabela stawek */}
                         <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
                             <div className="p-4 border-b border-slate-700">
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -1532,7 +1772,7 @@ function Admin() {
                     </div>
                 )}
 
-                {/* Tab: Referale - ROZSZERZONE O FRAUD ALERTS */}
+                {/* Tab: Referale */}
                 {activeTab === 'referrals' && (
                     <div className="space-y-6">
                         {referralLoading ? (
@@ -1541,7 +1781,6 @@ function Admin() {
                             </div>
                         ) : (
                             <>
-                                {/* Statystyki główne */}
                                 <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
                                     <div className="bg-gradient-to-br from-purple-900/30 to-pink-900/30 border border-purple-700/50 rounded-xl p-4 sm:p-6">
                                         <div className="flex items-center gap-2 mb-2">
@@ -1579,7 +1818,6 @@ function Admin() {
                                             {referralStats?.overview?.totalCommissions || 0}
                                         </p>
                                     </div>
-                                    {/* Alerty fraudu */}
                                     <div className={`border rounded-xl p-4 sm:p-6 ${
                                         (referralStats?.fraudAlertStats?.pending || 0) > 0
                                             ? 'bg-red-900/30 border-red-700/50'
@@ -1604,13 +1842,11 @@ function Admin() {
                                     </div>
                                 </div>
 
-                                {/* SEKCJA ALERTÓW FRAUDU */}
                                 <FraudAlertsSection 
                                     stats={referralStats?.fraudAlertStats} 
                                     onRefresh={fetchReferralData}
                                 />
 
-                                {/* Ustawienia systemu */}
                                 <div className="bg-gradient-to-br from-purple-900/30 to-pink-900/30 border border-purple-700/50 rounded-xl p-4 sm:p-6">
                                     <div className="flex items-center justify-between mb-4">
                                         <h3 className="font-semibold text-white flex items-center gap-2">
@@ -1650,7 +1886,6 @@ function Admin() {
                                     </div>
 
                                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                                        {/* Procent prowizji */}
                                         <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
                                             <p className="text-xs text-slate-400 mb-2">Prowizja od zarobków</p>
                                             {editingReferralSettings ? (
@@ -1676,7 +1911,6 @@ function Admin() {
                                             )}
                                         </div>
 
-                                        {/* Czas trwania bonusu */}
                                         <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
                                             <p className="text-xs text-slate-400 mb-2">Czas trwania bonusu</p>
                                             {editingReferralSettings ? (
@@ -1701,7 +1935,6 @@ function Admin() {
                                             )}
                                         </div>
 
-                                        {/* Min. wypłata */}
                                         <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
                                             <p className="text-xs text-slate-400 mb-2">Min. wypłata referali</p>
                                             {editingReferralSettings ? (
@@ -1726,7 +1959,6 @@ function Admin() {
                                             )}
                                         </div>
 
-                                        {/* Status systemu */}
                                         <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
                                             <p className="text-xs text-slate-400 mb-2">Status systemu</p>
                                             {editingReferralSettings ? (
@@ -1774,7 +2006,6 @@ function Admin() {
                                     </div>
                                 </div>
 
-                                {/* Top polecający z przyciskiem wyłączania zaproszeń */}
                                 {referralStats?.topReferrers?.length > 0 && (
                                     <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
                                         <div className="p-4 border-b border-slate-700">
@@ -1814,7 +2045,6 @@ function Admin() {
                                                             <p className="font-bold text-green-400">${referrer.earnings.toFixed(4)}</p>
                                                             <p className="text-xs text-slate-400">{referrer.referralsCount} poleconych</p>
                                                         </div>
-                                                        {/* Przycisk wyłączania zaproszeń */}
                                                         <button
                                                             onClick={() => toggleUserReferral(referrer.id, !referrer.referralDisabled)}
                                                             className={`p-2 rounded-lg text-xs ${
@@ -1837,7 +2067,6 @@ function Admin() {
                                     </div>
                                 )}
 
-                                {/* Ostatnie polecenia */}
                                 {referralStats?.recentReferrals?.length > 0 && (
                                     <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
                                         <div className="p-4 border-b border-slate-700">
@@ -1876,7 +2105,6 @@ function Admin() {
                                     </div>
                                 )}
 
-                                {/* Lista wszystkich poleceń */}
                                 <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
                                     <button
                                         onClick={() => {
@@ -1896,11 +2124,10 @@ function Admin() {
 
                                     {showReferralsList && (
                                         <div className="border-t border-slate-700">
-                                            {/* Wyszukiwarka */}
                                             <div className="p-4 bg-slate-700/30">
                                                 <div className="flex gap-2">
                                                     <input
-                                                        type="text"
+                                                                                                                type="text"
                                                         placeholder="Szukaj po emailu..."
                                                         value={referralSearch}
                                                         onChange={(e) => setReferralSearch(e.target.value)}
@@ -1920,7 +2147,6 @@ function Admin() {
                                                 </div>
                                             </div>
 
-                                            {/* Tabela */}
                                             <div className="overflow-x-auto">
                                                 <table className="w-full">
                                                     <thead className="bg-slate-700/50 text-xs text-slate-400">
@@ -1994,7 +2220,6 @@ function Admin() {
                                                 </table>
                                             </div>
 
-                                            {/* Paginacja */}
                                             {referralPagination && referralPagination.totalPages > 1 && (
                                                 <div className="p-4 border-t border-slate-700 flex items-center justify-between">
                                                     <p className="text-sm text-slate-400">
@@ -2029,7 +2254,6 @@ function Admin() {
                 {/* Tab: Security */}
                 {activeTab === 'security' && (
                     <div className="space-y-6">
-                        {/* Encryption Status */}
                         {encryptionStatus && (
                             <div className={`flex items-center gap-3 p-4 rounded-xl ${encryptionStatus.encryptionEnabled ? 'bg-green-900/20 border border-green-700/50' : 'bg-red-900/20 border border-red-700/50'}`}>
                                 {encryptionStatus.encryptionEnabled ? (
@@ -2052,7 +2276,6 @@ function Admin() {
                             </div>
                         )}
 
-                        {/* Search Section */}
                         <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 sm:p-6">
                             <h3 className="font-semibold mb-4 flex items-center gap-2">
                                 <Search className="w-4 h-4 text-cyan-500" />
@@ -2103,7 +2326,6 @@ function Admin() {
                                 </button>
                             </div>
 
-                            {/* Search Results */}
                             {searchResult && (
                                 <div className="mt-4 p-4 bg-slate-700/50 rounded-lg">
                                     {searchResult.type === 'user' && (
@@ -2193,7 +2415,6 @@ function Admin() {
                                 </div>
                             )}
 
-                            {/* IP History */}
                             {ipHistory && (
                                 <div className="mt-4 p-4 bg-slate-700/50 rounded-lg">
                                     <h4 className="font-semibold mb-3 flex items-center gap-2">

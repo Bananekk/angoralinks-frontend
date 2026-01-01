@@ -1,4 +1,4 @@
-// App.jsx - ZOPTYMALIZOWANY Z TRASĄ REFERALI
+// App.jsx - ZOPTYMALIZOWANY Z TRASĄ REFERALI I 2FA
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { Suspense, lazy, Component } from 'react';
@@ -98,6 +98,9 @@ const CpmRates = lazy(() => import('./pages/CpmRates'));
 // 🆕 Strona referali
 const RefLanding = lazy(() => import('./pages/RefLanding'));
 
+// 🔐 Strona konfiguracji 2FA
+const TwoFactorSetup = lazy(() => import('./components/TwoFactorSetup'));
+
 function App() {
     return (
         <ErrorBoundary>
@@ -131,6 +134,9 @@ function App() {
                         
                         {/* 🆕 Trasa referali */}
                         <Route path="/ref/:code" element={<RefLanding />} />
+                        
+                        {/* 🔐 Trasa konfiguracji 2FA */}
+                        <Route path="/setup-2fa" element={<TwoFactorSetup />} />
                         
                         {/* 404 Route */}
                         <Route path="*" element={
