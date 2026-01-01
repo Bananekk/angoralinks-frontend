@@ -40,9 +40,9 @@ export const getWebAuthnRegisterOptions = async () => {
     return response.data;
 };
 
-export const verifyWebAuthnRegistration = async (response, deviceName) => {
+export const verifyWebAuthnRegistration = async (credential, deviceName) => {
     const res = await api.post('/2fa/webauthn/register/verify', { 
-        response, 
+        response: credential, 
         deviceName 
     });
     return res.data;
@@ -117,18 +117,40 @@ export const verifyTwoFactorLogin = async (challengeToken, code, method = 'TOTP'
     return response.data;
 };
 
-export const verifyWebAuthnLogin = async (challengeToken, webauthnResponse) => {
-    const response = await api.post('/auth/2fa/verify', {
-        challengeToken,
-        response: webauthnResponse,
-        method: 'WEBAUTHN'
-    });
-    return response.data;
-};
-
+// WebAuthn - opcje autentykacji przy logowaniu
 export const getWebAuthnLoginOptions = async (challengeToken) => {
     const response = await api.post('/auth/2fa/webauthn/options', {
         challengeToken
     });
     return response.data;
+};
+
+// WebAuthn - weryfikacja przy logowaniu
+export const verifyWebAuthnLogin = async (challengeToken, webauthnResponse) => {
+    const response = await api.post('/auth/2fa/webauthn/verify', {
+        challengeToken,
+        response: webauthnResponse
+    });
+    return response.data;
+};
+
+// ============================================
+// HELPER: Sprawdź czy WebAuthn jest wspierany
+// ============================================
+
+export const isWebAuthnSupported = () => {
+    return !!(
+        window.PublicKeyCredential &&
+        typeof window.PublicKeyCredential === 'function'
+    );
+};
+
+// Helper do sprawdzenia Platform Authenticator (biometria)
+export const isPlatformAuthenticatorAvailable = async () => {
+    if (!isWebAuthnSupported()) return false;
+    try {
+        return await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+    } catch {
+        return false;
+    }
 };

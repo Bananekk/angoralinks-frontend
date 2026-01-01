@@ -1,10 +1,11 @@
-// Profile.jsx - Z OBSŁUGĄ 2FA
+// Profile.jsx - Z PEŁNĄ OBSŁUGĄ 2FA i WebAuthn
 import { useState, useEffect } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { 
     User, Mail, Lock, Trash2, ArrowLeft, Loader2, CheckCircle, 
     AlertCircle, Calendar, Link2, DollarSign, Shield, Smartphone,
-    Key, Plus, RefreshCw, Eye, EyeOff, Copy, Check, X
+    Key, Plus, RefreshCw, Copy, X, Fingerprint, Edit3, 
+    Monitor, Usb, Bluetooth, Wifi, MoreVertical
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../api/axios';
@@ -15,8 +16,46 @@ import {
     disableTotp,
     regenerateBackupCodes,
     disableTwoFactor,
-    getBackupCodesCount
+    getWebAuthnRegisterOptions,
+    verifyWebAuthnRegistration,
+    getWebAuthnCredentials,
+    deleteWebAuthnCredential,
+    updateWebAuthnCredentialName,
+    isWebAuthnSupported
 } from '../api/twoFactor';
+
+// ============================================
+// HELPERY WebAuthn
+// ============================================
+
+const base64URLToBuffer = (base64URL) => {
+    const padding = '='.repeat((4 - base64URL.length % 4) % 4);
+    const base64 = (base64URL + padding)
+        .replace(/-/g, '+')
+        .replace(/_/g, '/');
+    
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    
+    for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray.buffer;
+};
+
+const bufferToBase64URL = (buffer) => {
+    const bytes = new Uint8Array(buffer);
+    let str = '';
+    for (const byte of bytes) {
+        str += String.fromCharCode(byte);
+    }
+    const base64 = window.btoa(str);
+    return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+};
+
+// ============================================
+// HOOK: Window Size
+// ============================================
 
 const useWindowSize = () => {
     const [windowSize, setWindowSize] = useState({
@@ -31,6 +70,10 @@ const useWindowSize = () => {
 
     return { ...windowSize, isMobile: windowSize.width < 768 };
 };
+
+// ============================================
+// KOMPONENT GŁÓWNY
+// ============================================
 
 function Profile() {
     const navigate = useNavigate();
@@ -54,34 +97,58 @@ function Profile() {
     const [deleting, setDeleting] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-    // 🆕 2FA State
+    // 2FA State
     const [twoFactorStatus, setTwoFactorStatus] = useState(null);
     const [loading2FA, setLoading2FA] = useState(false);
     
-    // 🆕 TOTP Setup
+    // TOTP Setup
     const [showTotpSetup, setShowTotpSetup] = useState(false);
     const [totpData, setTotpData] = useState(null);
     const [totpCode, setTotpCode] = useState('');
     const [enablingTotp, setEnablingTotp] = useState(false);
     
-    // 🆕 Backup Codes
+    // WebAuthn
+    const [webAuthnCredentials, setWebAuthnCredentials] = useState([]);
+    const [loadingCredentials, setLoadingCredentials] = useState(false);
+    const [showWebAuthnSetup, setShowWebAuthnSetup] = useState(false);
+    const [webAuthnDeviceName, setWebAuthnDeviceName] = useState('');
+    const [registeringWebAuthn, setRegisteringWebAuthn] = useState(false);
+    const [webAuthnSupported, setWebAuthnSupported] = useState(false);
+    
+    // WebAuthn - edycja/usuwanie
+    const [editingCredential, setEditingCredential] = useState(null);
+    const [editCredentialName, setEditCredentialName] = useState('');
+    const [deletingCredential, setDeletingCredential] = useState(null);
+    const [deleteCredentialPassword, setDeleteCredentialPassword] = useState('');
+    const [deleteCredentialCode, setDeleteCredentialCode] = useState('');
+    
+    // Backup Codes
     const [showBackupCodes, setShowBackupCodes] = useState(false);
     const [backupCodes, setBackupCodes] = useState([]);
+    const [showRegenerateModal, setShowRegenerateModal] = useState(false);
     const [regeneratingCodes, setRegeneratingCodes] = useState(false);
     const [verificationCode, setVerificationCode] = useState('');
     const [verificationPassword, setVerificationPassword] = useState('');
     
-    // 🆕 Disable 2FA
+    // Disable 2FA
     const [showDisable2FA, setShowDisable2FA] = useState(false);
     const [disabling2FA, setDisabling2FA] = useState(false);
     const [disableCode, setDisableCode] = useState('');
     const [disablePassword, setDisablePassword] = useState('');
 
-    // 🆕 Sprawdź czy przekierowano z wymuszonego setupu
+    // ============================================
+    // EFFECTS
+    // ============================================
+
+    // Sprawdź WebAuthn support
+    useEffect(() => {
+        setWebAuthnSupported(isWebAuthnSupported());
+    }, []);
+
+    // Sprawdź czy przekierowano z wymuszonego setupu
     useEffect(() => {
         if (searchParams.get('setup2fa') === 'true') {
             setActiveTab('security');
-            // Automatycznie otwórz setup TOTP
             setTimeout(() => handleInitTotpSetup(), 500);
         }
     }, [searchParams]);
@@ -93,8 +160,13 @@ function Profile() {
     useEffect(() => {
         if (activeTab === 'security') {
             fetchTwoFactorStatus();
+            fetchWebAuthnCredentials();
         }
     }, [activeTab]);
+
+    // ============================================
+    // API CALLS
+    // ============================================
 
     const fetchProfile = async () => {
         try {
@@ -109,7 +181,6 @@ function Profile() {
         }
     };
 
-    // 🆕 Pobierz status 2FA
     const fetchTwoFactorStatus = async () => {
         setLoading2FA(true);
         try {
@@ -122,7 +193,22 @@ function Profile() {
         }
     };
 
-    // 🆕 Rozpocznij konfigurację TOTP
+    const fetchWebAuthnCredentials = async () => {
+        setLoadingCredentials(true);
+        try {
+            const response = await getWebAuthnCredentials();
+            setWebAuthnCredentials(response.data || []);
+        } catch (error) {
+            console.error('Error fetching WebAuthn credentials:', error);
+        } finally {
+            setLoadingCredentials(false);
+        }
+    };
+
+    // ============================================
+    // TOTP HANDLERS
+    // ============================================
+
     const handleInitTotpSetup = async () => {
         try {
             const response = await initTotpSetup();
@@ -133,7 +219,6 @@ function Profile() {
         }
     };
 
-    // 🆕 Włącz TOTP
     const handleEnableTotp = async (e) => {
         e.preventDefault();
         
@@ -145,9 +230,8 @@ function Profile() {
         setEnablingTotp(true);
         try {
             const response = await verifyAndEnableTotp(totpData.secret, totpCode);
-            toast.success('2FA zostało włączone!');
+            toast.success('TOTP zostało włączone!');
             
-            // Pokaż kody zapasowe jeśli zostały wygenerowane
             if (response.data?.backupCodes) {
                 setBackupCodes(response.data.backupCodes);
                 setShowBackupCodes(true);
@@ -164,7 +248,6 @@ function Profile() {
         }
     };
 
-    // 🆕 Wyłącz TOTP
     const handleDisableTotp = async () => {
         if (!disableCode && !disablePassword) {
             toast.error('Wprowadź kod 2FA lub hasło');
@@ -186,7 +269,143 @@ function Profile() {
         }
     };
 
-    // 🆕 Regeneruj kody zapasowe
+    // ============================================
+    // WEBAUTHN HANDLERS
+    // ============================================
+
+    const handleRegisterWebAuthn = async () => {
+        if (!webAuthnSupported) {
+            toast.error('Twoja przeglądarka nie obsługuje kluczy bezpieczeństwa');
+            return;
+        }
+
+        setRegisteringWebAuthn(true);
+        
+        try {
+            // 1. Pobierz opcje rejestracji
+            const optionsResponse = await getWebAuthnRegisterOptions();
+            const options = optionsResponse.data;
+
+            // 2. Konwertuj dane z base64url
+            const publicKeyOptions = {
+                ...options,
+                challenge: base64URLToBuffer(options.challenge),
+                user: {
+                    ...options.user,
+                    id: base64URLToBuffer(options.user.id)
+                },
+                excludeCredentials: options.excludeCredentials?.map(cred => ({
+                    ...cred,
+                    id: base64URLToBuffer(cred.id)
+                })) || []
+            };
+
+            // 3. Wywołaj WebAuthn API
+            let credential;
+            try {
+                credential = await navigator.credentials.create({
+                    publicKey: publicKeyOptions
+                });
+            } catch (credError) {
+                if (credError.name === 'NotAllowedError') {
+                    toast.error('Rejestracja została anulowana');
+                    return;
+                }
+                throw credError;
+            }
+
+            // 4. Przygotuj odpowiedź dla serwera
+            const credentialResponse = {
+                id: credential.id,
+                rawId: bufferToBase64URL(credential.rawId),
+                type: credential.type,
+                response: {
+                    clientDataJSON: bufferToBase64URL(credential.response.clientDataJSON),
+                    attestationObject: bufferToBase64URL(credential.response.attestationObject),
+                    transports: credential.response.getTransports?.() || []
+                }
+            };
+
+            // 5. Wyślij do serwera
+            const verifyResponse = await verifyWebAuthnRegistration(
+                credentialResponse, 
+                webAuthnDeviceName || undefined
+            );
+            
+            toast.success('Klucz bezpieczeństwa został zarejestrowany!');
+            
+            // Pokaż kody zapasowe jeśli to pierwsza metoda 2FA
+            if (verifyResponse.data?.backupCodes) {
+                setBackupCodes(verifyResponse.data.backupCodes);
+                setShowBackupCodes(true);
+            }
+            
+            setShowWebAuthnSetup(false);
+            setWebAuthnDeviceName('');
+            fetchTwoFactorStatus();
+            fetchWebAuthnCredentials();
+
+        } catch (error) {
+            console.error('WebAuthn registration error:', error);
+            
+            if (error.name === 'NotAllowedError') {
+                toast.error('Rejestracja została anulowana');
+            } else if (error.name === 'SecurityError') {
+                toast.error('Błąd bezpieczeństwa - sprawdź czy używasz HTTPS');
+            } else if (error.name === 'InvalidStateError') {
+                toast.error('Ten klucz jest już zarejestrowany');
+            } else {
+                toast.error(error.response?.data?.error || 'Błąd rejestracji klucza');
+            }
+        } finally {
+            setRegisteringWebAuthn(false);
+        }
+    };
+
+    const handleEditCredentialName = async () => {
+        if (!editCredentialName.trim()) {
+            toast.error('Nazwa nie może być pusta');
+            return;
+        }
+
+        try {
+            await updateWebAuthnCredentialName(editingCredential.id, editCredentialName.trim());
+            toast.success('Nazwa klucza została zmieniona');
+            setEditingCredential(null);
+            setEditCredentialName('');
+            fetchWebAuthnCredentials();
+        } catch (error) {
+            toast.error(error.response?.data?.error || 'Błąd zmiany nazwy');
+        }
+    };
+
+    const handleDeleteCredential = async () => {
+        if (!deleteCredentialCode && !deleteCredentialPassword) {
+            toast.error('Wprowadź kod 2FA lub hasło');
+            return;
+        }
+
+        try {
+            await deleteWebAuthnCredential(
+                deletingCredential.id,
+                deleteCredentialCode || null,
+                deleteCredentialPassword || null
+            );
+            toast.success('Klucz został usunięty');
+            setDeletingCredential(null);
+            setDeleteCredentialCode('');
+            setDeleteCredentialPassword('');
+            fetchTwoFactorStatus();
+            fetchWebAuthnCredentials();
+        } catch (error) {
+            toast.error(error.response?.data?.error || 'Błąd usuwania klucza');
+        }
+    };
+
+    // ============================================
+    // BACKUP CODES HANDLERS
+    // ============================================
+
     const handleRegenerateBackupCodes = async () => {
         if (!verificationCode && !verificationPassword) {
             toast.error('Wprowadź kod 2FA lub hasło');
@@ -201,6 +420,7 @@ function Profile() {
             );
             setBackupCodes(response.data.backupCodes);
             setShowBackupCodes(true);
+            setShowRegenerateModal(false);
             setVerificationCode('');
             setVerificationPassword('');
             toast.success('Wygenerowano nowe kody zapasowe');
@@ -212,12 +432,29 @@ function Profile() {
         }
     };
 
-    // 🆕 Kopiuj kody zapasowe
     const handleCopyBackupCodes = () => {
         const codesText = backupCodes.join('\n');
         navigator.clipboard.writeText(codesText);
         toast.success('Kody skopiowane do schowka');
     };
+
+    const handleDownloadBackupCodes = () => {
+        const codesText = backupCodes.map((code, i) => `${i + 1}. ${code}`).join('\n');
+        const content = `AngoraLinks - Kody zapasowe 2FA\n${'='.repeat(40)}\n\n${codesText}\n\n${'='.repeat(40)}\nKażdy kod może być użyty tylko raz.\nPrzechowuj w bezpiecznym miejscu!`;
+        
+        const blob = new Blob([content], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'angoralinks-backup-codes.txt';
+        a.click();
+        URL.revokeObjectURL(url);
+        toast.success('Plik pobrany');
+    };
+
+    // ============================================
+    // PROFILE HANDLERS
+    // ============================================
 
     const handleUpdateEmail = async (e) => {
         e.preventDefault();
@@ -280,9 +517,50 @@ function Profile() {
         }
     };
 
+    // ============================================
+    // HELPERS
+    // ============================================
+
+    const getCredentialIcon = (type) => {
+        switch (type) {
+            case 'singleDevice':
+                return <Usb style={{ width: '20px', height: '20px', color: '#f59e0b' }} />;
+            case 'multiDevice':
+                return <Fingerprint style={{ width: '20px', height: '20px', color: '#22c55e' }} />;
+            default:
+                return <Key style={{ width: '20px', height: '20px', color: '#0ea5e9' }} />;
+        }
+    };
+
+    const getCredentialTypeName = (type) => {
+        switch (type) {
+            case 'singleDevice':
+                return 'Klucz sprzętowy';
+            case 'multiDevice':
+                return 'Passkey (synchronizowany)';
+            default:
+                return 'Klucz bezpieczeństwa';
+        }
+    };
+
+    const formatDate = (dateString) => {
+        if (!dateString) return 'Nigdy';
+        return new Date(dateString).toLocaleDateString('pl-PL', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    };
+
+    // ============================================
+    // STYLES
+    // ============================================
+
     const tabs = [
         { id: 'profile', label: 'Profil', icon: User },
-        { id: 'security', label: 'Bezpieczeństwo', icon: Shield }, // 🆕
+        { id: 'security', label: 'Bezpieczeństwo', icon: Shield },
         { id: 'password', label: 'Hasło', icon: Lock },
         { id: 'delete', label: 'Usuń', icon: Trash2 }
     ];
@@ -304,7 +582,7 @@ function Profile() {
         justifyContent: 'center',
         gap: '8px',
         padding: '14px 24px',
-        backgroundColor: variant === 'primary' ? '#0ea5e9' : variant === 'danger' ? '#dc2626' : '#334155',
+        backgroundColor: variant === 'primary' ? '#0ea5e9' : variant === 'danger' ? '#dc2626' : variant === 'success' ? '#22c55e' : '#334155',
         color: '#ffffff',
         border: 'none',
         borderRadius: '8px',
@@ -312,8 +590,41 @@ function Profile() {
         cursor: isLoading ? 'not-allowed' : 'pointer',
         opacity: isLoading ? 0.7 : 1,
         width: isMobile ? '100%' : 'auto',
-        minHeight: '48px'
+        minHeight: '48px',
+        fontSize: '14px'
     });
+
+    const cardStyle = {
+        backgroundColor: 'rgba(30, 41, 59, 0.5)',
+        border: '1px solid #334155',
+        borderRadius: '16px',
+        padding: isMobile ? '20px' : '24px'
+    };
+
+    const modalOverlay = {
+        position: 'fixed',
+        inset: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 100,
+        padding: '16px'
+    };
+
+    const modalContent = {
+        backgroundColor: '#1e293b',
+        borderRadius: '16px',
+        padding: '32px',
+        maxWidth: '450px',
+        width: '100%',
+        maxHeight: '90vh',
+        overflowY: 'auto'
+    };
+
+    // ============================================
+    // LOADING STATE
+    // ============================================
 
     if (loading) {
         return (
@@ -322,6 +633,10 @@ function Profile() {
             </div>
         );
     }
+
+    // ============================================
+    // RENDER
+    // ============================================
 
     return (
         <div style={{ minHeight: '100vh', backgroundColor: '#0f172a', color: '#f8fafc' }}>
@@ -340,7 +655,7 @@ function Profile() {
 
             <main style={{ maxWidth: '800px', margin: '0 auto', padding: isMobile ? '16px 12px' : '32px 16px' }}>
                 {/* Statystyki konta */}
-                <div style={{ backgroundColor: 'rgba(30, 41, 59, 0.5)', border: '1px solid #334155', borderRadius: '16px', padding: isMobile ? '20px' : '24px', marginBottom: isMobile ? '20px' : '32px' }}>
+                <div style={{ ...cardStyle, marginBottom: isMobile ? '20px' : '32px' }}>
                     <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: isMobile ? '16px' : '24px', textAlign: 'center' }}>
                         <div style={{ display: 'flex', alignItems: isMobile ? 'center' : 'flex-start', flexDirection: isMobile ? 'row' : 'column', gap: isMobile ? '12px' : '8px', justifyContent: isMobile ? 'flex-start' : 'center' }}>
                             <DollarSign style={{ width: '32px', height: '32px', color: '#22c55e', flexShrink: 0 }} />
@@ -387,7 +702,8 @@ function Profile() {
                                 backgroundColor: activeTab === tab.id ? '#0ea5e9' : '#1e293b',
                                 color: activeTab === tab.id ? '#ffffff' : '#94a3b8',
                                 whiteSpace: 'nowrap',
-                                minHeight: '44px'
+                                minHeight: '44px',
+                                transition: 'all 0.2s ease'
                             }}
                         >
                             <tab.icon style={{ width: '18px', height: '18px' }} />
@@ -396,9 +712,11 @@ function Profile() {
                     ))}
                 </div>
 
+                {/* ============================================ */}
                 {/* Tab: Profil */}
+                {/* ============================================ */}
                 {activeTab === 'profile' && (
-                    <div style={{ backgroundColor: 'rgba(30, 41, 59, 0.5)', border: '1px solid #334155', borderRadius: '16px', padding: isMobile ? '20px' : '24px' }}>
+                    <div style={cardStyle}>
                         <h2 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <Mail style={{ width: '20px', height: '20px', color: '#0ea5e9' }} />
                             Zmień email
@@ -423,11 +741,14 @@ function Profile() {
                     </div>
                 )}
 
-                {/* 🆕 Tab: Bezpieczeństwo (2FA) */}
+                {/* ============================================ */}
+                {/* Tab: Bezpieczeństwo (2FA) */}
+                {/* ============================================ */}
                 {activeTab === 'security' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                        
                         {/* Status 2FA */}
-                        <div style={{ backgroundColor: 'rgba(30, 41, 59, 0.5)', border: '1px solid #334155', borderRadius: '16px', padding: isMobile ? '20px' : '24px' }}>
+                        <div style={cardStyle}>
                             <h2 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <Shield style={{ width: '20px', height: '20px', color: '#0ea5e9' }} />
                                 Dwuskładnikowe uwierzytelnianie (2FA)
@@ -448,7 +769,7 @@ function Profile() {
                                         backgroundColor: twoFactorStatus?.enabled ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)',
                                         border: `1px solid ${twoFactorStatus?.enabled ? '#22c55e' : '#ef4444'}`,
                                         borderRadius: '12px',
-                                        marginBottom: '24px'
+                                        marginBottom: '16px'
                                     }}>
                                         {twoFactorStatus?.enabled ? (
                                             <>
@@ -456,7 +777,11 @@ function Profile() {
                                                 <div>
                                                     <p style={{ fontWeight: 'bold', color: '#22c55e', margin: 0 }}>2FA jest włączone</p>
                                                     <p style={{ color: '#86efac', fontSize: '14px', margin: 0 }}>
-                                                        Metody: {twoFactorStatus?.methods?.join(', ') || 'TOTP'}
+                                                        Metody: {twoFactorStatus?.methods?.map(m => {
+                                                            if (m === 'TOTP') return 'Aplikacja';
+                                                            if (m === 'WEBAUTHN') return 'Klucz';
+                                                            return m;
+                                                        }).join(', ') || 'Brak'}
                                                     </p>
                                                 </div>
                                             </>
@@ -480,7 +805,7 @@ function Profile() {
                                             border: '1px solid #f59e0b',
                                             borderRadius: '8px',
                                             padding: '12px 16px',
-                                            marginBottom: '24px'
+                                            marginBottom: '16px'
                                         }}>
                                             <p style={{ color: '#fbbf24', fontSize: '14px', margin: 0 }}>
                                                 ⚠️ 2FA jest wymagane przez administratora i nie może być wyłączone
@@ -492,14 +817,14 @@ function Profile() {
                         </div>
 
                         {/* TOTP Setup/Manage */}
-                        <div style={{ backgroundColor: 'rgba(30, 41, 59, 0.5)', border: '1px solid #334155', borderRadius: '16px', padding: isMobile ? '20px' : '24px' }}>
-                            <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={cardStyle}>
+                            <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <Smartphone style={{ width: '18px', height: '18px', color: '#a855f7' }} />
                                 Aplikacja Authenticator
                             </h3>
                             
                             <p style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '16px' }}>
-                                Użyj aplikacji Google Authenticator, Authy lub Microsoft Authenticator
+                                Użyj Google Authenticator, Authy lub Microsoft Authenticator
                             </p>
 
                             {!twoFactorStatus?.totpEnabled ? (
@@ -511,14 +836,15 @@ function Profile() {
                                     Skonfiguruj TOTP
                                 </button>
                             ) : (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                    <CheckCircle style={{ width: '20px', height: '20px', color: '#22c55e' }} />
-                                    <span style={{ color: '#22c55e' }}>Skonfigurowano</span>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <CheckCircle style={{ width: '20px', height: '20px', color: '#22c55e' }} />
+                                        <span style={{ color: '#22c55e', fontWeight: '500' }}>Skonfigurowano</span>
+                                    </div>
                                     {!twoFactorStatus?.required && (
                                         <button 
                                             onClick={() => setShowDisable2FA(true)}
                                             style={{ 
-                                                marginLeft: 'auto',
                                                 padding: '8px 16px',
                                                 backgroundColor: 'transparent',
                                                 border: '1px solid #ef4444',
@@ -535,10 +861,128 @@ function Profile() {
                             )}
                         </div>
 
+                        {/* WebAuthn / Passkeys */}
+                        <div style={cardStyle}>
+                            <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Fingerprint style={{ width: '18px', height: '18px', color: '#22c55e' }} />
+                                Klucze bezpieczeństwa / Biometria
+                            </h3>
+                            
+                            <p style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '16px' }}>
+                                {webAuthnSupported 
+                                    ? 'YubiKey, Touch ID, Face ID, Windows Hello'
+                                    : '⚠️ Twoja przeglądarka nie obsługuje kluczy bezpieczeństwa'
+                                }
+                            </p>
+
+                            {/* Lista zarejestrowanych kluczy */}
+                            {loadingCredentials ? (
+                                <div style={{ display: 'flex', justifyContent: 'center', padding: '24px' }}>
+                                    <Loader2 className="animate-spin" style={{ width: '24px', height: '24px', color: '#0ea5e9' }} />
+                                </div>
+                            ) : webAuthnCredentials.length > 0 ? (
+                                <div style={{ marginBottom: '16px' }}>
+                                    {webAuthnCredentials.map((cred) => (
+                                        <div 
+                                            key={cred.id}
+                                            style={{ 
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between',
+                                                padding: '16px',
+                                                backgroundColor: '#0f172a',
+                                                borderRadius: '12px',
+                                                marginBottom: '8px',
+                                                border: '1px solid #334155'
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
+                                                {getCredentialIcon(cred.type)}
+                                                <div style={{ minWidth: 0 }}>
+                                                    <p style={{ 
+                                                        fontWeight: '500', 
+                                                        margin: 0,
+                                                        whiteSpace: 'nowrap',
+                                                        overflow: 'hidden',
+                                                        textOverflow: 'ellipsis'
+                                                    }}>
+                                                        {cred.deviceName || 'Klucz bezpieczeństwa'}
+                                                    </p>
+                                                    <p style={{ color: '#64748b', fontSize: '12px', margin: 0 }}>
+                                                        {getCredentialTypeName(cred.type)}
+                                                        {cred.backedUp && ' • Zsynchronizowany'}
+                                                    </p>
+                                                    <p style={{ color: '#64748b', fontSize: '12px', margin: 0 }}>
+                                                        Ostatnio: {formatDate(cred.lastUsedAt)}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            
+                                            <div style={{ display: 'flex', gap: '8px' }}>
+                                                <button
+                                                    onClick={() => {
+                                                        setEditingCredential(cred);
+                                                        setEditCredentialName(cred.deviceName || '');
+                                                    }}
+                                                    style={{
+                                                        padding: '8px',
+                                                        backgroundColor: 'transparent',
+                                                        border: '1px solid #334155',
+                                                        borderRadius: '6px',
+                                                        color: '#94a3b8',
+                                                        cursor: 'pointer'
+                                                    }}
+                                                    title="Zmień nazwę"
+                                                >
+                                                    <Edit3 style={{ width: '16px', height: '16px' }} />
+                                                </button>
+                                                <button
+                                                    onClick={() => setDeletingCredential(cred)}
+                                                    style={{
+                                                        padding: '8px',
+                                                        backgroundColor: 'transparent',
+                                                        border: '1px solid #ef4444',
+                                                        borderRadius: '6px',
+                                                        color: '#ef4444',
+                                                        cursor: 'pointer'
+                                                    }}
+                                                    title="Usuń klucz"
+                                                >
+                                                    <Trash2 style={{ width: '16px', height: '16px' }} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div style={{ 
+                                    padding: '24px', 
+                                    textAlign: 'center', 
+                                    backgroundColor: '#0f172a',
+                                    borderRadius: '12px',
+                                    marginBottom: '16px'
+                                }}>
+                                    <Key style={{ width: '32px', height: '32px', color: '#64748b', margin: '0 auto 8px' }} />
+                                    <p style={{ color: '#64748b', margin: 0 }}>Brak zarejestrowanych kluczy</p>
+                                </div>
+                            )}
+
+                            {/* Przycisk dodawania klucza */}
+                            {webAuthnSupported && (
+                                <button 
+                                    onClick={() => setShowWebAuthnSetup(true)}
+                                    style={buttonStyle(false, 'success')}
+                                >
+                                    <Plus style={{ width: '20px', height: '20px' }} />
+                                    Dodaj klucz bezpieczeństwa
+                                </button>
+                            )}
+                        </div>
+
                         {/* Backup Codes */}
                         {twoFactorStatus?.enabled && (
-                            <div style={{ backgroundColor: 'rgba(30, 41, 59, 0.5)', border: '1px solid #334155', borderRadius: '16px', padding: isMobile ? '20px' : '24px' }}>
-                                <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <div style={cardStyle}>
+                                <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     <Key style={{ width: '18px', height: '18px', color: '#f59e0b' }} />
                                     Kody zapasowe
                                 </h3>
@@ -580,18 +1024,8 @@ function Profile() {
                                 )}
 
                                 <button 
-                                    onClick={() => {
-                                        setVerificationCode('');
-                                        setVerificationPassword('');
-                                        setShowBackupCodes(false);
-                                        // Pokaż modal regeneracji
-                                        const modal = document.getElementById('regenerate-modal');
-                                        if (modal) modal.style.display = 'flex';
-                                    }}
-                                    style={{
-                                        ...buttonStyle(false),
-                                        backgroundColor: '#334155'
-                                    }}
+                                    onClick={() => setShowRegenerateModal(true)}
+                                    style={buttonStyle(false, 'secondary')}
                                 >
                                     <RefreshCw style={{ width: '20px', height: '20px' }} />
                                     Wygeneruj nowe kody
@@ -601,9 +1035,11 @@ function Profile() {
                     </div>
                 )}
 
+                {/* ============================================ */}
                 {/* Tab: Hasło */}
+                {/* ============================================ */}
                 {activeTab === 'password' && (
-                    <div style={{ backgroundColor: 'rgba(30, 41, 59, 0.5)', border: '1px solid #334155', borderRadius: '16px', padding: isMobile ? '20px' : '24px' }}>
+                    <div style={cardStyle}>
                         <h2 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <Lock style={{ width: '20px', height: '20px', color: '#0ea5e9' }} />
                             Zmień hasło
@@ -651,7 +1087,9 @@ function Profile() {
                     </div>
                 )}
 
+                {/* ============================================ */}
                 {/* Tab: Usuń konto */}
+                {/* ============================================ */}
                 {activeTab === 'delete' && (
                     <div style={{ backgroundColor: 'rgba(127, 29, 29, 0.2)', border: '1px solid #7f1d1d', borderRadius: '16px', padding: isMobile ? '20px' : '24px' }}>
                         <h2 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', color: '#ef4444' }}>
@@ -752,29 +1190,16 @@ function Profile() {
                 )}
             </main>
 
-            {/* 🆕 Modal: TOTP Setup */}
+            {/* ============================================ */}
+            {/* MODALS */}
+            {/* ============================================ */}
+
+            {/* Modal: TOTP Setup */}
             {showTotpSetup && totpData && (
-                <div style={{
-                    position: 'fixed',
-                    inset: 0,
-                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    zIndex: 100,
-                    padding: '16px'
-                }}>
-                    <div style={{
-                        backgroundColor: '#1e293b',
-                        borderRadius: '16px',
-                        padding: '32px',
-                        maxWidth: '450px',
-                        width: '100%',
-                        maxHeight: '90vh',
-                        overflowY: 'auto'
-                    }}>
+                <div style={modalOverlay}>
+                    <div style={modalContent}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                            <h2 style={{ fontSize: '20px', fontWeight: 'bold', margin: 0 }}>Konfiguracja 2FA</h2>
+                            <h2 style={{ fontSize: '20px', fontWeight: 'bold', margin: 0 }}>Konfiguracja Authenticator</h2>
                             <button 
                                 onClick={() => { setShowTotpSetup(false); setTotpData(null); setTotpCode(''); }}
                                 style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '8px' }}
@@ -818,7 +1243,7 @@ function Profile() {
                                         navigator.clipboard.writeText(totpData.secret);
                                         toast.success('Skopiowano!');
                                     }}
-                                    style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '4px' }}
+                                    style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '4px', flexShrink: 0 }}
                                 >
                                     <Copy style={{ width: '16px', height: '16px' }} />
                                 </button>
@@ -827,7 +1252,7 @@ function Profile() {
 
                         <form onSubmit={handleEnableTotp}>
                             <p style={{ color: '#94a3b8', marginBottom: '12px', fontSize: '14px' }}>
-                                2. Wprowadź kod z aplikacji:
+                                2. Wprowadź 6-cyfrowy kod z aplikacji:
                             </p>
                             <input
                                 type="text"
@@ -852,16 +1277,7 @@ function Profile() {
                                 <button
                                     type="button"
                                     onClick={() => { setShowTotpSetup(false); setTotpData(null); setTotpCode(''); }}
-                                    style={{
-                                        flex: 1,
-                                        padding: '14px',
-                                        backgroundColor: '#334155',
-                                        color: '#ffffff',
-                                        border: 'none',
-                                        borderRadius: '8px',
-                                        cursor: 'pointer',
-                                        fontWeight: 'bold'
-                                    }}
+                                    style={buttonStyle(false, 'secondary')}
                                 >
                                     Anuluj
                                 </button>
@@ -869,19 +1285,8 @@ function Profile() {
                                     type="submit"
                                     disabled={enablingTotp || totpCode.length !== 6}
                                     style={{
-                                        flex: 1,
-                                        padding: '14px',
-                                        backgroundColor: '#0ea5e9',
-                                        color: '#ffffff',
-                                        border: 'none',
-                                        borderRadius: '8px',
-                                        cursor: enablingTotp ? 'not-allowed' : 'pointer',
-                                        opacity: enablingTotp || totpCode.length !== 6 ? 0.7 : 1,
-                                        fontWeight: 'bold',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        gap: '8px'
+                                        ...buttonStyle(enablingTotp),
+                                        opacity: enablingTotp || totpCode.length !== 6 ? 0.7 : 1
                                     }}
                                 >
                                     {enablingTotp ? (
@@ -897,30 +1302,307 @@ function Profile() {
                 </div>
             )}
 
-            {/* 🆕 Modal: Backup Codes Display */}
+            {/* Modal: WebAuthn Setup */}
+            {showWebAuthnSetup && (
+                <div style={modalOverlay}>
+                    <div style={modalContent}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                            <h2 style={{ fontSize: '20px', fontWeight: 'bold', margin: 0 }}>Dodaj klucz bezpieczeństwa</h2>
+                            <button 
+                                onClick={() => { setShowWebAuthnSetup(false); setWebAuthnDeviceName(''); }}
+                                style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '8px' }}
+                            >
+                                <X style={{ width: '24px', height: '24px' }} />
+                            </button>
+                        </div>
+
+                        <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+                            <div style={{ 
+                                width: '80px', 
+                                height: '80px', 
+                                borderRadius: '50%', 
+                                backgroundColor: 'rgba(34, 197, 94, 0.2)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                margin: '0 auto 16px'
+                            }}>
+                                <Fingerprint style={{ width: '40px', height: '40px', color: '#22c55e' }} />
+                            </div>
+                            <p style={{ color: '#94a3b8', fontSize: '14px' }}>
+                                Przygotuj klucz bezpieczeństwa lub użyj biometrii urządzenia
+                            </p>
+                        </div>
+
+                        <div style={{ marginBottom: '24px' }}>
+                            <label style={{ display: 'block', marginBottom: '8px', color: '#94a3b8', fontSize: '14px' }}>
+                                Nazwa urządzenia (opcjonalne)
+                            </label>
+                            <input
+                                type="text"
+                                value={webAuthnDeviceName}
+                                onChange={(e) => setWebAuthnDeviceName(e.target.value)}
+                                style={inputStyle}
+                                placeholder="np. YubiKey 5, MacBook Pro, iPhone"
+                                maxLength={100}
+                            />
+                        </div>
+
+                        <div style={{ 
+                            backgroundColor: '#0f172a', 
+                            borderRadius: '12px', 
+                            padding: '16px',
+                            marginBottom: '24px'
+                        }}>
+                            <p style={{ color: '#f8fafc', fontSize: '14px', fontWeight: 'bold', marginBottom: '12px' }}>
+                                Po kliknięciu "Zarejestruj":
+                            </p>
+                            <ul style={{ color: '#94a3b8', fontSize: '13px', margin: 0, paddingLeft: '20px' }}>
+                                <li style={{ marginBottom: '8px' }}>Włóż klucz USB lub dotknij czytnika NFC</li>
+                                <li style={{ marginBottom: '8px' }}>Lub użyj Face ID / Touch ID / Windows Hello</li>
+                                <li>Postępuj zgodnie z instrukcjami przeglądarki</li>
+                            </ul>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '12px' }}>
+                            <button
+                                onClick={() => { setShowWebAuthnSetup(false); setWebAuthnDeviceName(''); }}
+                                style={buttonStyle(false, 'secondary')}
+                            >
+                                Anuluj
+                            </button>
+                            <button
+                                onClick={handleRegisterWebAuthn}
+                                disabled={registeringWebAuthn}
+                                style={buttonStyle(registeringWebAuthn, 'success')}
+                            >
+                                {registeringWebAuthn ? (
+                                    <><Loader2 className="animate-spin" style={{ width: '20px', height: '20px' }} /> Oczekiwanie...</>
+                                ) : (
+                                    <><Key style={{ width: '20px', height: '20px' }} /> Zarejestruj klucz</>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal: Edit Credential Name */}
+            {editingCredential && (
+                <div style={modalOverlay}>
+                    <div style={{ ...modalContent, maxWidth: '400px' }}>
+                        <h2 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '16px' }}>
+                            Zmień nazwę klucza
+                        </h2>
+                        
+                        <div style={{ marginBottom: '24px' }}>
+                            <label style={{ display: 'block', marginBottom: '8px', color: '#94a3b8', fontSize: '14px' }}>
+                                Nowa nazwa
+                            </label>
+                            <input
+                                type="text"
+                                value={editCredentialName}
+                                onChange={(e) => setEditCredentialName(e.target.value)}
+                                style={inputStyle}
+                                placeholder="np. MacBook Pro"
+                                maxLength={100}
+                                autoFocus
+                            />
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '12px' }}>
+                            <button
+                                onClick={() => { setEditingCredential(null); setEditCredentialName(''); }}
+                                style={buttonStyle(false, 'secondary')}
+                            >
+                                Anuluj
+                            </button>
+                            <button
+                                onClick={handleEditCredentialName}
+                                disabled={!editCredentialName.trim()}
+                                style={buttonStyle(false)}
+                            >
+                                <CheckCircle style={{ width: '18px', height: '18px' }} />
+                                Zapisz
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal: Delete Credential */}
+            {deletingCredential && (
+                <div style={modalOverlay}>
+                    <div style={{ ...modalContent, maxWidth: '400px' }}>
+                        <h2 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '16px', color: '#ef4444' }}>
+                            Usuń klucz bezpieczeństwa
+                        </h2>
+                        
+                        <p style={{ color: '#94a3b8', marginBottom: '16px', fontSize: '14px' }}>
+                            Czy na pewno chcesz usunąć klucz <strong>"{deletingCredential.deviceName || 'Klucz bezpieczeństwa'}"</strong>?
+                        </p>
+
+                        <p style={{ color: '#94a3b8', marginBottom: '16px', fontSize: '14px' }}>
+                            Wprowadź kod 2FA lub hasło aby potwierdzić:
+                        </p>
+
+                        {twoFactorStatus?.totpEnabled && (
+                            <div style={{ marginBottom: '16px' }}>
+                                <label style={{ display: 'block', marginBottom: '8px', color: '#94a3b8', fontSize: '14px' }}>
+                                    Kod z aplikacji (6 cyfr)
+                                </label>
+                                <input
+                                    type="text"
+                                    value={deleteCredentialCode}
+                                    onChange={(e) => {
+                                        const val = e.target.value.replace(/\D/g, '');
+                                        if (val.length <= 6) setDeleteCredentialCode(val);
+                                    }}
+                                    style={inputStyle}
+                                    placeholder="000000"
+                                    maxLength={6}
+                                />
+                            </div>
+                        )}
+
+                        {twoFactorStatus?.totpEnabled && (
+                            <div style={{ textAlign: 'center', color: '#64748b', marginBottom: '16px' }}>lub</div>
+                        )}
+
+                        <div style={{ marginBottom: '24px' }}>
+                            <label style={{ display: 'block', marginBottom: '8px', color: '#94a3b8', fontSize: '14px' }}>
+                                Hasło do konta
+                            </label>
+                            <input
+                                type="password"
+                                value={deleteCredentialPassword}
+                                onChange={(e) => setDeleteCredentialPassword(e.target.value)}
+                                style={inputStyle}
+                                placeholder="••••••••"
+                            />
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '12px' }}>
+                            <button
+                                onClick={() => { 
+                                    setDeletingCredential(null); 
+                                    setDeleteCredentialCode(''); 
+                                    setDeleteCredentialPassword(''); 
+                                }}
+                                style={buttonStyle(false, 'secondary')}
+                            >
+                                Anuluj
+                            </button>
+                            <button
+                                onClick={handleDeleteCredential}
+                                disabled={!deleteCredentialCode && !deleteCredentialPassword}
+                                style={buttonStyle(false, 'danger')}
+                            >
+                                <Trash2 style={{ width: '18px', height: '18px' }} />
+                                Usuń klucz
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal: Regenerate Backup Codes */}
+            {showRegenerateModal && (
+                <div style={modalOverlay}>
+                    <div style={{ ...modalContent, maxWidth: '400px' }}>
+                        <h2 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '16px' }}>
+                            Wygeneruj nowe kody zapasowe
+                        </h2>
+                        
+                        <div style={{ 
+                            backgroundColor: 'rgba(245, 158, 11, 0.1)', 
+                            border: '1px solid #f59e0b',
+                            borderRadius: '8px',
+                            padding: '12px',
+                            marginBottom: '16px'
+                        }}>
+                            <p style={{ color: '#fbbf24', fontSize: '13px', margin: 0 }}>
+                                ⚠️ Stare kody zostaną unieważnione
+                            </p>
+                        </div>
+
+                        <p style={{ color: '#94a3b8', marginBottom: '16px', fontSize: '14px' }}>
+                            Wprowadź kod 2FA lub hasło aby potwierdzić:
+                        </p>
+
+                        {twoFactorStatus?.totpEnabled && (
+                            <div style={{ marginBottom: '16px' }}>
+                                <label style={{ display: 'block', marginBottom: '8px', color: '#94a3b8', fontSize: '14px' }}>
+                                    Kod z aplikacji (6 cyfr)
+                                </label>
+                                <input
+                                    type="text"
+                                    value={verificationCode}
+                                    onChange={(e) => {
+                                        const val = e.target.value.replace(/\D/g, '');
+                                        if (val.length <= 6) setVerificationCode(val);
+                                    }}
+                                    style={inputStyle}
+                                    placeholder="000000"
+                                    maxLength={6}
+                                />
+                            </div>
+                        )}
+
+                        {twoFactorStatus?.totpEnabled && (
+                            <div style={{ textAlign: 'center', color: '#64748b', marginBottom: '16px' }}>lub</div>
+                        )}
+
+                        <div style={{ marginBottom: '24px' }}>
+                            <label style={{ display: 'block', marginBottom: '8px', color: '#94a3b8', fontSize: '14px' }}>
+                                Hasło do konta
+                            </label>
+                            <input
+                                type="password"
+                                value={verificationPassword}
+                                onChange={(e) => setVerificationPassword(e.target.value)}
+                                style={inputStyle}
+                                placeholder="••••••••"
+                            />
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '12px' }}>
+                            <button
+                                onClick={() => { 
+                                    setShowRegenerateModal(false); 
+                                    setVerificationCode(''); 
+                                    setVerificationPassword(''); 
+                                }}
+                                style={buttonStyle(false, 'secondary')}
+                            >
+                                Anuluj
+                            </button>
+                            <button
+                                onClick={handleRegenerateBackupCodes}
+                                disabled={regeneratingCodes || (!verificationCode && !verificationPassword)}
+                                style={buttonStyle(regeneratingCodes)}
+                            >
+                                {regeneratingCodes ? (
+                                    <Loader2 className="animate-spin" style={{ width: '18px', height: '18px' }} />
+                                ) : (
+                                    <RefreshCw style={{ width: '18px', height: '18px' }} />
+                                )}
+                                Generuj kody
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal: Backup Codes Display */}
             {showBackupCodes && backupCodes.length > 0 && (
-                <div style={{
-                    position: 'fixed',
-                    inset: 0,
-                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    zIndex: 100,
-                    padding: '16px'
-                }}>
-                    <div style={{
-                        backgroundColor: '#1e293b',
-                        borderRadius: '16px',
-                        padding: '32px',
-                        maxWidth: '450px',
-                        width: '100%'
-                    }}>
+                <div style={modalOverlay}>
+                    <div style={modalContent}>
                         <div style={{ textAlign: 'center', marginBottom: '24px' }}>
                             <Key style={{ width: '48px', height: '48px', color: '#f59e0b', margin: '0 auto 16px' }} />
                             <h2 style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '8px' }}>Kody zapasowe</h2>
                             <p style={{ color: '#94a3b8', fontSize: '14px' }}>
-                                Zapisz te kody w bezpiecznym miejscu. Każdy kod może być użyty tylko raz.
+                                Zapisz te kody w bezpiecznym miejscu
                             </p>
                         </div>
 
@@ -932,7 +1614,7 @@ function Profile() {
                             marginBottom: '24px'
                         }}>
                             <p style={{ color: '#fca5a5', fontSize: '13px', margin: 0, textAlign: 'center' }}>
-                                ⚠️ Te kody nie będą pokazane ponownie!
+                                ⚠️ <strong>Ważne!</strong> Te kody nie będą pokazane ponownie.
                             </p>
                         </div>
 
@@ -950,84 +1632,56 @@ function Profile() {
                                     textAlign: 'center',
                                     fontFamily: 'monospace',
                                     fontSize: '14px',
-                                    color: '#0ea5e9'
+                                    color: '#0ea5e9',
+                                    border: '1px solid #334155'
                                 }}>
-                                    {code}
+                                    <span style={{ color: '#64748b', fontSize: '11px' }}>{index + 1}.</span> {code}
                                 </div>
                             ))}
                         </div>
 
-                        <div style={{ display: 'flex', gap: '12px' }}>
+                        <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
                             <button
                                 onClick={handleCopyBackupCodes}
-                                style={{
-                                    flex: 1,
-                                    padding: '14px',
-                                    backgroundColor: '#334155',
-                                    color: '#ffffff',
-                                    border: 'none',
-                                    borderRadius: '8px',
-                                    cursor: 'pointer',
-                                    fontWeight: 'bold',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    gap: '8px'
-                                }}
+                                style={buttonStyle(false, 'secondary')}
                             >
                                 <Copy style={{ width: '18px', height: '18px' }} />
                                 Kopiuj
                             </button>
                             <button
-                                onClick={() => { setShowBackupCodes(false); setBackupCodes([]); }}
-                                style={{
-                                    flex: 1,
-                                    padding: '14px',
-                                    backgroundColor: '#0ea5e9',
-                                    color: '#ffffff',
-                                    border: 'none',
-                                    borderRadius: '8px',
-                                    cursor: 'pointer',
-                                    fontWeight: 'bold'
-                                }}
+                                onClick={handleDownloadBackupCodes}
+                                style={buttonStyle(false, 'secondary')}
                             >
-                                Zapisałem kody
+                                <RefreshCw style={{ width: '18px', height: '18px' }} />
+                                Pobierz
                             </button>
                         </div>
+
+                        <button
+                            onClick={() => { setShowBackupCodes(false); setBackupCodes([]); }}
+                            style={buttonStyle(false)}
+                        >
+                            Zapisałem kody - zamknij
+                        </button>
                     </div>
                 </div>
             )}
 
-            {/* 🆕 Modal: Disable 2FA */}
+            {/* Modal: Disable TOTP */}
             {showDisable2FA && (
-                <div style={{
-                    position: 'fixed',
-                    inset: 0,
-                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    zIndex: 100,
-                    padding: '16px'
-                }}>
-                    <div style={{
-                        backgroundColor: '#1e293b',
-                        borderRadius: '16px',
-                        padding: '32px',
-                        maxWidth: '400px',
-                        width: '100%'
-                    }}>
-                        <h2 style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '16px', color: '#ef4444' }}>
-                            Wyłącz 2FA
+                <div style={modalOverlay}>
+                    <div style={{ ...modalContent, maxWidth: '400px' }}>
+                                                <h2 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '16px', color: '#ef4444' }}>
+                            Wyłącz TOTP
                         </h2>
                         
                         <p style={{ color: '#94a3b8', marginBottom: '24px', fontSize: '14px' }}>
-                            Aby wyłączyć 2FA, wprowadź kod z aplikacji authenticator lub hasło do konta.
+                            Aby wyłączyć aplikację authenticator, wprowadź kod 2FA lub hasło do konta.
                         </p>
 
                         <div style={{ marginBottom: '16px' }}>
                             <label style={{ display: 'block', marginBottom: '8px', color: '#94a3b8', fontSize: '14px' }}>
-                                Kod 2FA (6 cyfr)
+                                Kod z aplikacji (6 cyfr)
                             </label>
                             <input
                                 type="text"
@@ -1060,42 +1714,19 @@ function Profile() {
                         <div style={{ display: 'flex', gap: '12px' }}>
                             <button
                                 onClick={() => { setShowDisable2FA(false); setDisableCode(''); setDisablePassword(''); }}
-                                style={{
-                                    flex: 1,
-                                    padding: '14px',
-                                    backgroundColor: '#334155',
-                                    color: '#ffffff',
-                                    border: 'none',
-                                    borderRadius: '8px',
-                                    cursor: 'pointer',
-                                    fontWeight: 'bold'
-                                }}
+                                style={buttonStyle(false, 'secondary')}
                             >
                                 Anuluj
                             </button>
                             <button
                                 onClick={handleDisableTotp}
                                 disabled={disabling2FA || (!disableCode && !disablePassword)}
-                                style={{
-                                    flex: 1,
-                                    padding: '14px',
-                                    backgroundColor: '#dc2626',
-                                    color: '#ffffff',
-                                    border: 'none',
-                                    borderRadius: '8px',
-                                    cursor: disabling2FA ? 'not-allowed' : 'pointer',
-                                    opacity: disabling2FA || (!disableCode && !disablePassword) ? 0.7 : 1,
-                                    fontWeight: 'bold',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    gap: '8px'
-                                }}
+                                style={buttonStyle(disabling2FA, 'danger')}
                             >
                                 {disabling2FA ? (
                                     <Loader2 className="animate-spin" style={{ width: '20px', height: '20px' }} />
                                 ) : (
-                                    'Wyłącz 2FA'
+                                    'Wyłącz TOTP'
                                 )}
                             </button>
                         </div>
@@ -1107,3 +1738,4 @@ function Profile() {
 }
 
 export default Profile;
+                        
