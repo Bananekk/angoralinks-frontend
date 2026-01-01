@@ -483,7 +483,10 @@ function Admin() {
 
     // 🆕 Wyłącz polecenia i wyzeruj zarobki
     const disableReferralAndResetEarnings = async (userId, userEmail) => {
-        if (!confirm(`Czy na pewno chcesz wyłączyć polecenia i wyzerować zarobki z poleceń dla ${userEmail}? Ta operacja jest nieodwracalna!`)) {
+        if (!confirm(`Czy na pewno chcesz wyłączyć polecenia i wyzerować zarobki z poleceń dla ${userEmail}?\n\n` +
+        `⚠️ UWAGA:\n` +
+        `• Wyzerowanie zarobków jest NIEODWRACALNE\n` +
+        `• Wyłączenie poleceń można później cofnąć`)) {
             return;
         }
         
