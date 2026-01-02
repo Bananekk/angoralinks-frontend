@@ -27,18 +27,20 @@ export default {
         payouts: 'Wypłaty',
         profile: 'Profil',
         admin: 'Admin',
-        login: 'Zaloguj',
-        register: 'Dołącz teraz',
-        logout: 'Wyloguj'
+        login: 'Zaloguj się',
+        register: 'Zarejestruj się',
+        logout: 'Wyloguj się'
     },
 
     // Strona główna
     home: {
         hero: {
-            title: 'Zarabiaj na swoich linkach',
-            subtitle: 'Skracaj linki i zarabiaj za każde kliknięcie. Dołącz do tysięcy użytkowników.',
-            cta: 'Rozpocznij zarabianie',
-            ctaSecondary: 'Zobacz stawki CPM'
+            badge: 'Najlepsza platforma do zarabiania na linkach',
+            titlePart1: 'Zarabiaj na',
+            titleHighlight: 'linkach',
+            subtitle: 'Skracaj linki i zarabiaj pieniądze za każde kliknięcie. Dołącz do tysięcy użytkowników, którzy już zarabiają z AngoraLinks.',
+            cta: 'Zacznij zarabiać',
+            ctaSecondary: 'Mam już konto'
         },
         stats: {
             users: 'Użytkowników',
@@ -47,19 +49,53 @@ export default {
             uptime: 'Uptime'
         },
         features: {
-            title: 'Dlaczego my?',
-            fast: {
-                title: 'Błyskawiczne wypłaty',
-                description: 'Wypłaty przetwarzane w ciągu 24-48 godzin'
+            title: 'Dlaczego AngoraLinks?',
+            subtitle: 'Oferujemy najlepsze warunki dla twórców treści i marketerów',
+            highRates: {
+                title: 'Wysokie stawki',
+                description: 'Zarabiaj do $3 CPM za ruch z krajów Tier 1. Konkurencyjne stawki dla całego świata.'
             },
-            secure: {
-                title: 'Bezpieczeństwo',
-                description: 'Twoje dane są w pełni chronione'
+            fastPayouts: {
+                title: 'Szybkie wypłaty',
+                description: 'Wypłaty już od $10. PayPal, Bitcoin, przelew bankowy. Otrzymaj pieniądze w 24h.'
             },
-            global: {
-                title: 'Globalny zasięg',
-                description: 'Zarabiaj na ruchu z całego świata'
+            secureLinks: {
+                title: 'Bezpieczne linki',
+                description: 'Wszystkie linki są sprawdzane. Ochrona przed złośliwym oprogramowaniem.'
             }
+        },
+        howItWorks: {
+            title: 'Jak to działa?',
+            subtitle: 'Zacznij zarabiać w trzech prostych krokach',
+            step1: {
+                title: 'Zarejestruj się',
+                description: 'Stwórz darmowe konto w kilka sekund. Bez ukrytych opłat.'
+            },
+            step2: {
+                title: 'Skróć link',
+                description: 'Wklej dowolny link i otrzymaj skrócony URL gotowy do udostępnienia.'
+            },
+            step3: {
+                title: 'Zarabiaj',
+                description: 'Udostępniaj link i zarabiaj za każde kliknięcie. To takie proste!'
+            }
+        },
+        cta: {
+            title: 'Gotowy, żeby zacząć zarabiać?',
+            subtitle: 'Dołącz do {{count}} użytkowników, którzy już zarabiają z AngoraLinks',
+            button: 'Zarejestruj się za darmo'
+        },
+        footer: {
+            copyright: '© 2025 AngoraLinks. Wszystkie prawa zastrzeżone.'
+        },
+        loggedIn: {
+            subtitle: 'Zarządzaj swoimi linkami i zarabiaj więcej.',
+            availableBalance: 'Dostępne saldo',
+            totalEarned: 'Łącznie zarobione',
+            manageLinks: 'Zarządzaj linkami',
+            analyzeTraffic: 'Analizuj ruch',
+            withdrawFunds: 'Wypłać środki',
+            settings: 'Ustawienia'
         }
     },
 

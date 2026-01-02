@@ -1,4 +1,4 @@
-// Home.jsx - NAPRAWIONY
+// Home.jsx - Z SYSTEMEM TŁUMACZEŃ
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
@@ -8,6 +8,7 @@ import {
     Menu, X
 } from 'lucide-react';
 import api from '../api/axios';
+import { useTranslation } from '../i18n';
 
 const useWindowSize = () => {
     const [windowSize, setWindowSize] = useState({
@@ -34,6 +35,7 @@ const useWindowSize = () => {
 function Home() {
     const navigate = useNavigate();
     const { isMobile } = useWindowSize();
+    const { t } = useTranslation();
     
     const [user, setUser] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -218,7 +220,7 @@ function Home() {
                                 {user ? (
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px' }}>
-                                            <span style={{ color: '#94a3b8' }}>Saldo:</span>
+                                            <span style={{ color: '#94a3b8' }}>{t('dashboard.stats.balance')}:</span>
                                             <span style={{ color: '#22c55e', fontWeight: '600' }}>
                                                 ${parseFloat(user.balance || 0).toFixed(2)}
                                             </span>
@@ -238,7 +240,7 @@ function Home() {
                                             }}
                                         >
                                             <LayoutDashboard style={{ width: '16px', height: '16px' }} />
-                                            Dashboard
+                                            {t('navbar.dashboard')}
                                         </Link>
                                         <button
                                             onClick={handleLogout}
@@ -249,7 +251,7 @@ function Home() {
                                                 border: 'none',
                                                 cursor: 'pointer'
                                             }}
-                                            title="Wyloguj się"
+                                            title={t('navbar.logout')}
                                         >
                                             <LogOut style={{ width: '20px', height: '20px' }} />
                                         </button>
@@ -260,7 +262,7 @@ function Home() {
                                             to="/login" 
                                             style={{ color: '#cbd5e1', textDecoration: 'none' }}
                                         >
-                                            Zaloguj się
+                                            {t('navbar.login')}
                                         </Link>
                                         <Link 
                                             to="/register" 
@@ -273,7 +275,7 @@ function Home() {
                                                 textDecoration: 'none'
                                             }}
                                         >
-                                            Zarejestruj się
+                                            {t('navbar.register')}
                                         </Link>
                                     </div>
                                 )}
@@ -295,7 +297,7 @@ function Home() {
                                     minWidth: '44px',
                                     minHeight: '44px'
                                 }}
-                                aria-label="Otwórz menu"
+                                aria-label="Menu"
                             >
                                 <Menu style={{ width: '24px', height: '24px' }} />
                             </button>
@@ -322,7 +324,7 @@ function Home() {
                     <button 
                         onClick={() => setMobileMenuOpen(false)}
                         style={mobileMenuStyles.closeButton}
-                        aria-label="Zamknij menu"
+                        aria-label={t('common.close')}
                     >
                         <X style={{ width: '24px', height: '24px' }} />
                     </button>
@@ -336,7 +338,7 @@ function Home() {
                             backgroundColor: 'rgba(14, 165, 233, 0.1)'
                         }}>
                             <p style={{ fontSize: '12px', color: '#94a3b8', margin: '0 0 4px 0' }}>
-                                Twoje saldo
+                                {t('dashboard.stats.balance')}
                             </p>
                             <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#22c55e', margin: 0 }}>
                                 ${parseFloat(user.balance || 0).toFixed(2)}
@@ -350,7 +352,7 @@ function Home() {
                                 onClick={() => setMobileMenuOpen(false)}
                             >
                                 <LayoutDashboard style={{ width: '20px', height: '20px' }} />
-                                Dashboard
+                                {t('navbar.dashboard')}
                             </Link>
                             <Link 
                                 to="/stats" 
@@ -358,7 +360,7 @@ function Home() {
                                 onClick={() => setMobileMenuOpen(false)}
                             >
                                 <BarChart3 style={{ width: '20px', height: '20px' }} />
-                                Statystyki
+                                {t('navbar.stats')}
                             </Link>
                             <Link 
                                 to="/payouts" 
@@ -366,7 +368,7 @@ function Home() {
                                 onClick={() => setMobileMenuOpen(false)}
                             >
                                 <Wallet style={{ width: '20px', height: '20px' }} />
-                                Wypłaty
+                                {t('navbar.payouts')}
                             </Link>
                             <Link 
                                 to="/cpm-rates" 
@@ -374,7 +376,7 @@ function Home() {
                                 onClick={() => setMobileMenuOpen(false)}
                             >
                                 <Globe style={{ width: '20px', height: '20px' }} />
-                                Stawki CPM
+                                {t('cpmRates.title')}
                             </Link>
                             <Link 
                                 to="/profile" 
@@ -382,7 +384,7 @@ function Home() {
                                 onClick={() => setMobileMenuOpen(false)}
                             >
                                 <User style={{ width: '20px', height: '20px' }} />
-                                Profil
+                                {t('navbar.profile')}
                             </Link>
                         </div>
 
@@ -406,7 +408,7 @@ function Home() {
                                 }}
                             >
                                 <LogOut style={{ width: '20px', height: '20px' }} />
-                                Wyloguj się
+                                {t('navbar.logout')}
                             </button>
                         </div>
                     </>
@@ -425,7 +427,7 @@ function Home() {
                                 onClick={() => setMobileMenuOpen(false)}
                             >
                                 <Globe style={{ width: '20px', height: '20px', color: '#22c55e' }} />
-                                Stawki CPM
+                                {t('cpmRates.title')}
                             </Link>
                             <Link 
                                 to="/terms" 
@@ -439,7 +441,7 @@ function Home() {
                                 onClick={() => setMobileMenuOpen(false)}
                             >
                                 <Shield style={{ width: '20px', height: '20px' }} />
-                                Regulamin
+                                {t('terms.title')}
                             </Link>
                             <Link 
                                 to="/contact" 
@@ -452,7 +454,7 @@ function Home() {
                                 onClick={() => setMobileMenuOpen(false)}
                             >
                                 <User style={{ width: '20px', height: '20px' }} />
-                                Kontakt
+                                {t('contact.title')}
                             </Link>
                         </div>
 
@@ -474,7 +476,7 @@ function Home() {
                                 }}
                                 onClick={() => setMobileMenuOpen(false)}
                             >
-                                Zarejestruj się
+                                {t('navbar.register')}
                             </Link>
                             <Link
                                 to="/login"
@@ -493,7 +495,7 @@ function Home() {
                                 }}
                                 onClick={() => setMobileMenuOpen(false)}
                             >
-                                Zaloguj się
+                                {t('navbar.login')}
                             </Link>
                         </div>
                     </>
@@ -530,10 +532,10 @@ function Home() {
                                         color: 'white',
                                         marginBottom: '8px'
                                     }}>
-                                        Witaj, {user.email?.split('@')[0]}! 👋
+                                        {t('dashboard.welcome')}, {user.email?.split('@')[0]}! 👋
                                     </h1>
                                     <p style={{ color: '#94a3b8', margin: 0 }}>
-                                        Zarządzaj swoimi linkami i zarabiaj więcej.
+                                        {t('home.loggedIn.subtitle')}
                                     </p>
                                 </div>
                                 <div style={{ 
@@ -557,7 +559,7 @@ function Home() {
                                             ${parseFloat(user.balance || 0).toFixed(2)}
                                         </p>
                                         <p style={{ fontSize: '12px', color: '#94a3b8', margin: '4px 0 0' }}>
-                                            Dostępne saldo
+                                            {t('home.loggedIn.availableBalance')}
                                         </p>
                                     </div>
                                     <div style={{ 
@@ -576,7 +578,7 @@ function Home() {
                                             ${parseFloat(user.totalEarned || 0).toFixed(2)}
                                         </p>
                                         <p style={{ fontSize: '12px', color: '#94a3b8', margin: '4px 0 0' }}>
-                                            Łącznie zarobione
+                                            {t('home.loggedIn.totalEarned')}
                                         </p>
                                     </div>
                                 </div>
@@ -589,10 +591,10 @@ function Home() {
                             gap: isMobile ? '12px' : '16px'
                         }}>
                             {[
-                                { to: '/dashboard', icon: LayoutDashboard, title: 'Dashboard', subtitle: 'Zarządzaj linkami', color: '#0ea5e9' },
-                                { to: '/stats', icon: BarChart3, title: 'Statystyki', subtitle: 'Analizuj ruch', color: '#3b82f6' },
-                                { to: '/payouts', icon: Wallet, title: 'Wypłaty', subtitle: 'Wypłać środki', color: '#22c55e' },
-                                { to: '/profile', icon: User, title: 'Profil', subtitle: 'Ustawienia', color: '#a855f7' }
+                                { to: '/dashboard', icon: LayoutDashboard, titleKey: 'navbar.dashboard', subtitleKey: 'home.loggedIn.manageLinks', color: '#0ea5e9' },
+                                { to: '/stats', icon: BarChart3, titleKey: 'navbar.stats', subtitleKey: 'home.loggedIn.analyzeTraffic', color: '#3b82f6' },
+                                { to: '/payouts', icon: Wallet, titleKey: 'navbar.payouts', subtitleKey: 'home.loggedIn.withdrawFunds', color: '#22c55e' },
+                                { to: '/profile', icon: User, titleKey: 'navbar.profile', subtitleKey: 'home.loggedIn.settings', color: '#a855f7' }
                             ].map((item, index) => (
                                 <Link 
                                     key={index}
@@ -627,11 +629,11 @@ function Home() {
                                         color: 'white',
                                         marginBottom: '4px'
                                     }}>
-                                        {item.title}
+                                        {t(item.titleKey)}
                                     </h3>
                                     {!isMobile && (
                                         <p style={{ color: '#94a3b8', fontSize: '14px', margin: 0 }}>
-                                            {item.subtitle}
+                                            {t(item.subtitleKey)}
                                         </p>
                                     )}
                                 </Link>
@@ -659,7 +661,7 @@ function Home() {
                         }}>
                             <Zap style={{ width: '16px', height: '16px', color: '#0ea5e9' }} />
                             <span style={{ fontSize: '14px', color: '#38bdf8' }}>
-                                Najlepsza platforma do zarabiania na linkach
+                                {t('home.hero.badge')}
                             </span>
                         </div>
 
@@ -670,8 +672,8 @@ function Home() {
                             color: 'white',
                             lineHeight: 1.1
                         }}>
-                            Zarabiaj na{' '}
-                            <span style={{ color: '#0ea5e9' }}>linkach</span>
+                            {t('home.hero.titlePart1')}{' '}
+                            <span style={{ color: '#0ea5e9' }}>{t('home.hero.titleHighlight')}</span>
                         </h1>
 
                         <p style={{ 
@@ -681,8 +683,7 @@ function Home() {
                             margin: '0 auto 32px',
                             lineHeight: 1.6
                         }}>
-                            Skracaj linki i zarabiaj pieniądze za każde kliknięcie. 
-                            Dołącz do tysięcy użytkowników, którzy już zarabiają z AngoraLinks.
+                            {t('home.hero.subtitle')}
                         </p>
 
                         <div style={{
@@ -707,7 +708,7 @@ function Home() {
                                     gap: '8px'
                                 }}
                             >
-                                Zacznij zarabiać
+                                {t('home.hero.cta')}
                                 <ArrowRight style={{ width: '20px', height: '20px' }} />
                             </Link>
                             <Link 
@@ -723,7 +724,7 @@ function Home() {
                                     textAlign: 'center'
                                 }}
                             >
-                                Mam już konto
+                                {t('home.hero.ctaSecondary')}
                             </Link>
                         </div>
                     </div>
@@ -744,7 +745,7 @@ function Home() {
                             marginBottom: '16px',
                             color: 'white'
                         }}>
-                            Dlaczego AngoraLinks?
+                            {t('home.features.title')}
                         </h2>
                         <p style={{ 
                             color: '#94a3b8', 
@@ -752,7 +753,7 @@ function Home() {
                             maxWidth: '640px',
                             margin: `0 auto ${isMobile ? '32px' : '48px'}`
                         }}>
-                            Oferujemy najlepsze warunki dla twórców treści i marketerów
+                            {t('home.features.subtitle')}
                         </p>
                         
                         <div style={{
@@ -764,20 +765,20 @@ function Home() {
                                 { 
                                     icon: DollarSign, 
                                     color: '#22c55e', 
-                                    title: 'Wysokie stawki',
-                                    desc: 'Zarabiaj do $3 CPM za ruch z krajów Tier 1. Konkurencyjne stawki dla całego świata.'
+                                    titleKey: 'home.features.highRates.title',
+                                    descKey: 'home.features.highRates.description'
                                 },
                                 { 
                                     icon: Clock, 
                                     color: '#3b82f6', 
-                                    title: 'Szybkie wypłaty',
-                                    desc: 'Wypłaty już od $10. PayPal, Bitcoin, przelew bankowy. Otrzymaj pieniądze w 24h.'
+                                    titleKey: 'home.features.fastPayouts.title',
+                                    descKey: 'home.features.fastPayouts.description'
                                 },
                                 { 
                                     icon: Shield, 
                                     color: '#a855f7', 
-                                    title: 'Bezpieczne linki',
-                                    desc: 'Wszystkie linki są sprawdzane. Ochrona przed złośliwym oprogramowaniem.'
+                                    titleKey: 'home.features.secureLinks.title',
+                                    descKey: 'home.features.secureLinks.description'
                                 }
                             ].map((feature, index) => (
                                 <div key={index} style={{
@@ -808,10 +809,10 @@ function Home() {
                                         marginBottom: '8px',
                                         color: 'white'
                                     }}>
-                                        {feature.title}
+                                        {t(feature.titleKey)}
                                     </h3>
                                     <p style={{ color: '#94a3b8', lineHeight: 1.6, margin: 0 }}>
-                                        {feature.desc}
+                                        {t(feature.descKey)}
                                     </p>
                                 </div>
                             ))}
@@ -831,14 +832,14 @@ function Home() {
                             marginBottom: '16px',
                             color: 'white'
                         }}>
-                            Jak to działa?
+                            {t('home.howItWorks.title')}
                         </h2>
                         <p style={{ 
                             color: '#94a3b8', 
                             textAlign: 'center', 
                             marginBottom: isMobile ? '32px' : '48px'
                         }}>
-                            Zacznij zarabiać w trzech prostych krokach
+                            {t('home.howItWorks.subtitle')}
                         </p>
                         
                         <div style={{
@@ -847,9 +848,9 @@ function Home() {
                             gap: isMobile ? '24px' : '32px'
                         }}>
                             {[
-                                { num: '1', title: 'Zarejestruj się', desc: 'Stwórz darmowe konto w kilka sekund. Bez ukrytych opłat.' },
-                                { num: '2', title: 'Skróć link', desc: 'Wklej dowolny link i otrzymaj skrócony URL gotowy do udostępnienia.' },
-                                { num: '3', title: 'Zarabiaj', desc: 'Udostępniaj link i zarabiaj za każde kliknięcie. To takie proste!' }
+                                { num: '1', titleKey: 'home.howItWorks.step1.title', descKey: 'home.howItWorks.step1.description' },
+                                { num: '2', titleKey: 'home.howItWorks.step2.title', descKey: 'home.howItWorks.step2.description' },
+                                { num: '3', titleKey: 'home.howItWorks.step3.title', descKey: 'home.howItWorks.step3.description' }
                             ].map((step, index) => (
                                 <div key={index} style={{ textAlign: 'center' }}>
                                     <div style={{
@@ -873,9 +874,9 @@ function Home() {
                                         marginBottom: '8px',
                                         color: 'white'
                                     }}>
-                                        {step.title}
+                                        {t(step.titleKey)}
                                     </h3>
-                                    <p style={{ color: '#94a3b8', margin: 0 }}>{step.desc}</p>
+                                    <p style={{ color: '#94a3b8', margin: 0 }}>{t(step.descKey)}</p>
                                 </div>
                             ))}
                         </div>
@@ -895,10 +896,10 @@ function Home() {
                         gap: isMobile ? '16px' : '32px'
                     }}>
                         {[
-                            { icon: Users, value: formatNumber(publicStats.users), label: 'Użytkowników', color: '#0ea5e9' },
-                            { icon: Globe, value: formatNumber(publicStats.clicks), label: 'Kliknięć', color: '#3b82f6' },
-                            { icon: DollarSign, value: `$${formatNumber(publicStats.paidOut)}`, label: 'Wypłacone', color: '#22c55e' },
-                            { icon: TrendingUp, value: `${publicStats.uptime}%`, label: 'Uptime', color: '#a855f7' }
+                            { icon: Users, value: formatNumber(publicStats.users), labelKey: 'home.stats.users', color: '#0ea5e9' },
+                            { icon: Globe, value: formatNumber(publicStats.clicks), labelKey: 'home.stats.clicks', color: '#3b82f6' },
+                            { icon: DollarSign, value: `$${formatNumber(publicStats.paidOut)}`, labelKey: 'home.stats.paidOut', color: '#22c55e' },
+                            { icon: TrendingUp, value: `${publicStats.uptime}%`, labelKey: 'home.stats.uptime', color: '#a855f7' }
                         ].map((stat, index) => (
                             <div key={index} style={{ 
                                 padding: isMobile ? '20px' : '24px',
@@ -924,7 +925,7 @@ function Home() {
                                     {stat.value}
                                 </div>
                                 <div style={{ color: '#94a3b8', marginTop: '8px' }}>
-                                    {stat.label}
+                                    {t(stat.labelKey)}
                                 </div>
                             </div>
                         ))}
@@ -948,14 +949,14 @@ function Home() {
                                 marginBottom: '16px',
                                 color: 'white'
                             }}>
-                                Gotowy, żeby zacząć zarabiać?
+                                {t('home.cta.title')}
                             </h2>
                             <p style={{ 
                                 fontSize: isMobile ? '16px' : '18px',
                                 color: 'rgba(255,255,255,0.8)',
                                 marginBottom: '32px'
                             }}>
-                                Dołącz do {publicStats.users > 0 ? formatNumber(publicStats.users) : ''} użytkowników, którzy już zarabiają z AngoraLinks
+                                {t('home.cta.subtitle', { count: publicStats.users > 0 ? formatNumber(publicStats.users) : '' })}
                             </p>
                             <Link 
                                 to="/register" 
@@ -972,7 +973,7 @@ function Home() {
                                     textDecoration: 'none'
                                 }}
                             >
-                                Zarejestruj się za darmo
+                                {t('home.cta.button')}
                                 <ArrowRight style={{ width: '20px', height: '20px' }} />
                             </Link>
                         </div>
@@ -1000,14 +1001,14 @@ function Home() {
                             <span style={{ fontWeight: 'bold', color: 'white' }}>AngoraLinks</span>
                         </div>
                         <p style={{ color: '#94a3b8', fontSize: '14px', margin: 0 }}>
-                            © 2025 AngoraLinks. Wszystkie prawa zastrzeżone.
+                            {t('home.footer.copyright')}
                         </p>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                             <Link to="/terms" style={{ color: '#94a3b8', fontSize: '14px', textDecoration: 'none' }}>
-                                Regulamin
+                                {t('terms.title')}
                             </Link>
                             <Link to="/contact" style={{ color: '#94a3b8', fontSize: '14px', textDecoration: 'none' }}>
-                                Kontakt
+                                {t('contact.title')}
                             </Link>
                         </div>
                     </div>

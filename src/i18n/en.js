@@ -28,17 +28,19 @@ export default {
         profile: 'Profile',
         admin: 'Admin',
         login: 'Login',
-        register: 'Join now',
+        register: 'Register',
         logout: 'Logout'
     },
 
     // Home page
     home: {
         hero: {
-            title: 'Earn money from your links',
-            subtitle: 'Shorten links and earn for every click. Join thousands of users.',
+            badge: 'Best platform for earning from links',
+            titlePart1: 'Earn from',
+            titleHighlight: 'links',
+            subtitle: 'Shorten links and earn money for every click. Join thousands of users who already earn with AngoraLinks.',
             cta: 'Start earning',
-            ctaSecondary: 'View CPM rates'
+            ctaSecondary: 'I have an account'
         },
         stats: {
             users: 'Users',
@@ -47,19 +49,53 @@ export default {
             uptime: 'Uptime'
         },
         features: {
-            title: 'Why choose us?',
-            fast: {
+            title: 'Why AngoraLinks?',
+            subtitle: 'We offer the best conditions for content creators and marketers',
+            highRates: {
+                title: 'High rates',
+                description: 'Earn up to $3 CPM for Tier 1 traffic. Competitive rates worldwide.'
+            },
+            fastPayouts: {
                 title: 'Fast payouts',
-                description: 'Payouts processed within 24-48 hours'
+                description: 'Payouts from $10. PayPal, Bitcoin, bank transfer. Get your money in 24h.'
             },
-            secure: {
-                title: 'Security',
-                description: 'Your data is fully protected'
-            },
-            global: {
-                title: 'Global reach',
-                description: 'Earn from traffic worldwide'
+            secureLinks: {
+                title: 'Secure links',
+                description: 'All links are verified. Protection against malware.'
             }
+        },
+        howItWorks: {
+            title: 'How it works?',
+            subtitle: 'Start earning in three simple steps',
+            step1: {
+                title: 'Register',
+                description: 'Create a free account in seconds. No hidden fees.'
+            },
+            step2: {
+                title: 'Shorten link',
+                description: 'Paste any link and get a shortened URL ready to share.'
+            },
+            step3: {
+                title: 'Earn',
+                description: 'Share your link and earn for every click. It\'s that simple!'
+            }
+        },
+        cta: {
+            title: 'Ready to start earning?',
+            subtitle: 'Join {{count}} users who already earn with AngoraLinks',
+            button: 'Register for free'
+        },
+        footer: {
+            copyright: '© 2025 AngoraLinks. All rights reserved.'
+        },
+        loggedIn: {
+            subtitle: 'Manage your links and earn more.',
+            availableBalance: 'Available balance',
+            totalEarned: 'Total earned',
+            manageLinks: 'Manage links',
+            analyzeTraffic: 'Analyze traffic',
+            withdrawFunds: 'Withdraw funds',
+            settings: 'Settings'
         }
     },
 
