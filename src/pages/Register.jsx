@@ -4,10 +4,12 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Link2, Mail, Lock, Loader2, Gift, CheckCircle, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../api/axios';
+import { useTranslation } from '../i18n';
 
 function Register() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
+    const { t } = useTranslation();
     
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({ 
@@ -17,11 +19,9 @@ function Register() {
         referralCode: searchParams.get('ref') || ''
     });
     
-    // Stan walidacji kodu polecającego
     const [referralValid, setReferralValid] = useState(null);
     const [checkingReferral, setCheckingReferral] = useState(false);
 
-    // Waliduj kod polecający przy starcie (jeśli jest w URL)
     useEffect(() => {
         const code = searchParams.get('ref');
         if (code) {
@@ -31,7 +31,6 @@ function Register() {
     }, [searchParams]);
 
     const validateReferralCode = async (code) => {
-        // 🔧 FIX: Kody mają 8 znaków, nie 6
         if (!code || code.length < 8) {
             setReferralValid(null);
             return;
@@ -41,12 +40,8 @@ function Register() {
         try {
             const response = await api.get(`/referrals/validate/${code.toUpperCase()}`);
             setReferralValid(response.data.valid);
-            
-            // 🔧 DEBUG log - usuń po naprawie
-            console.log('📝 Referral validation:', { code, valid: response.data.valid });
         } catch (err) {
-            console.error('❌ Referral validation error:', err);
-            // 🔧 FIX: Nie blokuj kodu przy błędzie sieciowym - backend zwaliduje
+            console.error('Referral validation error:', err);
             setReferralValid(null);
         } finally {
             setCheckingReferral(false);
@@ -57,9 +52,7 @@ function Register() {
         const { name, value } = e.target;
         setFormData({ ...formData, [name]: value });
         
-        // Waliduj kod polecający gdy użytkownik wpisuje
         if (name === 'referralCode') {
-            // 🔧 FIX: Kody mają 8 znaków
             if (value.length >= 8) {
                 validateReferralCode(value);
             } else {
@@ -72,7 +65,7 @@ function Register() {
         e.preventDefault();
         
         if (formData.password !== formData.confirmPassword) {
-            toast.error('Hasła nie są identyczne');
+            toast.error(t('register.errors.passwordsNotMatch'));
             return;
         }
 
@@ -85,28 +78,16 @@ function Register() {
                 confirmPassword: formData.confirmPassword
             };
             
-            // 🔧 FIX: Wyślij kod jeśli jest wpisany (backend zwaliduje)
-            // Nie wymagaj referralValid === true, bo może być null przy błędzie sieciowym
             if (formData.referralCode && formData.referralCode.length >= 8) {
                 payload.referralCode = formData.referralCode.toUpperCase();
-                console.log('📝 Sending referral code:', payload.referralCode);
             }
-            
-            console.log('📝 Registration payload:', { 
-                email: payload.email, 
-                hasReferralCode: !!payload.referralCode,
-                referralCode: payload.referralCode 
-            });
             
             const response = await api.post('/auth/register', payload);
             
-            console.log('✅ Registration response:', response.data);
-            
-            toast.success('Sprawdź email i wpisz kod weryfikacyjny!');
+            toast.success(t('register.messages.checkEmail'));
             navigate('/verify', { state: { email: formData.email } });
         } catch (error) {
-            console.error('❌ Registration error:', error.response?.data);
-            toast.error(error.response?.data?.error || 'Błąd rejestracji');
+            toast.error(error.response?.data?.error || t('register.errors.registrationFailed'));
         } finally {
             setLoading(false);
         }
@@ -128,7 +109,6 @@ function Register() {
         paddingRight: '44px'
     };
 
-    // 🔧 FIX: Pokaż banner nawet jeśli walidacja jest w toku lub kod został wpisany
     const showReferralBanner = formData.referralCode && formData.referralCode.length >= 8 && referralValid !== false;
 
     return (
@@ -141,7 +121,6 @@ function Register() {
                     </Link>
                 </div>
 
-                {/* Banner informujący o poleceniu - 🔧 POPRAWIONY WARUNEK */}
                 {showReferralBanner && (
                     <div style={{
                         marginBottom: '24px',
@@ -157,12 +136,12 @@ function Register() {
                         <Gift style={{ width: '32px', height: '32px', color: '#ffffff', flexShrink: 0 }} />
                         <div>
                             <p style={{ margin: 0, fontWeight: '600', fontSize: '15px' }}>
-                                {referralValid === true ? 'Zostałeś polecony!' : 'Weryfikacja kodu...'}
+                                {referralValid === true ? t('register.referral.referred') : t('register.referral.verifying')}
                             </p>
                             <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'rgba(255,255,255,0.8)' }}>
                                 {referralValid === true 
-                                    ? 'Twój polecający otrzyma 10% prowizji od Twoich zarobków'
-                                    : 'Kod zostanie zweryfikowany przy rejestracji'
+                                    ? t('register.referral.commission')
+                                    : t('register.referral.willBeVerified')
                                 }
                             </p>
                         </div>
@@ -170,11 +149,11 @@ function Register() {
                 )}
 
                 <div style={{ backgroundColor: 'rgba(30, 41, 59, 0.5)', border: '1px solid #334155', borderRadius: '16px', padding: '32px 24px' }}>
-                    <h1 style={{ fontSize: '24px', fontWeight: 'bold', textAlign: 'center', marginBottom: '24px' }}>Utwórz konto</h1>
+                    <h1 style={{ fontSize: '24px', fontWeight: 'bold', textAlign: 'center', marginBottom: '24px' }}>{t('register.title')}</h1>
                     
                     <form onSubmit={handleSubmit}>
                         <div style={{ marginBottom: '16px' }}>
-                            <label style={{ display: 'block', marginBottom: '8px', color: '#94a3b8', fontSize: '14px' }}>Email</label>
+                            <label style={{ display: 'block', marginBottom: '8px', color: '#94a3b8', fontSize: '14px' }}>{t('register.email')}</label>
                             <div style={{ position: 'relative' }}>
                                 <Mail style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', width: '20px', height: '20px', color: '#64748b' }} />
                                 <input 
@@ -183,14 +162,14 @@ function Register() {
                                     value={formData.email} 
                                     onChange={handleChange} 
                                     style={inputStyle} 
-                                    placeholder="twoj@email.pl" 
+                                    placeholder={t('register.emailPlaceholder')}
                                     required 
                                 />
                             </div>
                         </div>
 
                         <div style={{ marginBottom: '16px' }}>
-                            <label style={{ display: 'block', marginBottom: '8px', color: '#94a3b8', fontSize: '14px' }}>Hasło</label>
+                            <label style={{ display: 'block', marginBottom: '8px', color: '#94a3b8', fontSize: '14px' }}>{t('register.password')}</label>
                             <div style={{ position: 'relative' }}>
                                 <Lock style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', width: '20px', height: '20px', color: '#64748b' }} />
                                 <input 
@@ -199,14 +178,14 @@ function Register() {
                                     value={formData.password} 
                                     onChange={handleChange} 
                                     style={inputStyle} 
-                                    placeholder="Min. 8 znaków, 1 cyfra, 1 wielka litera" 
+                                    placeholder={t('register.passwordPlaceholder')}
                                     required 
                                 />
                             </div>
                         </div>
 
                         <div style={{ marginBottom: '16px' }}>
-                            <label style={{ display: 'block', marginBottom: '8px', color: '#94a3b8', fontSize: '14px' }}>Potwierdź hasło</label>
+                            <label style={{ display: 'block', marginBottom: '8px', color: '#94a3b8', fontSize: '14px' }}>{t('register.confirmPassword')}</label>
                             <div style={{ position: 'relative' }}>
                                 <Lock style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', width: '20px', height: '20px', color: '#64748b' }} />
                                 <input 
@@ -215,16 +194,15 @@ function Register() {
                                     value={formData.confirmPassword} 
                                     onChange={handleChange} 
                                     style={inputStyle} 
-                                    placeholder="Powtórz hasło" 
+                                    placeholder={t('register.repeatPassword')}
                                     required 
                                 />
                             </div>
                         </div>
 
-                        {/* Pole kodu polecającego */}
                         <div style={{ marginBottom: '24px' }}>
                             <label style={{ display: 'block', marginBottom: '8px', color: '#94a3b8', fontSize: '14px' }}>
-                                Kod polecający <span style={{ color: '#64748b' }}>(opcjonalnie)</span>
+                                {t('register.referralCode')} <span style={{ color: '#64748b' }}>({t('register.optional')})</span>
                             </label>
                             <div style={{ position: 'relative' }}>
                                 <Gift style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', width: '20px', height: '20px', color: '#64748b' }} />
@@ -242,9 +220,8 @@ function Register() {
                                         backgroundColor: referralValid === true ? 'rgba(34, 197, 94, 0.1)' : 
                                                         referralValid === false ? 'rgba(239, 68, 68, 0.1)' : '#0f172a'
                                     }} 
-                                    placeholder="np. A1B2C3D4" 
+                                    placeholder={t('register.referralCodePlaceholder')}
                                 />
-                                {/* Ikona statusu */}
                                 {checkingReferral && (
                                     <div style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)' }}>
                                         <Loader2 
@@ -276,15 +253,14 @@ function Register() {
                                     }} />
                                 )}
                             </div>
-                            {/* Komunikat o statusie kodu */}
                             {referralValid === false && formData.referralCode.length >= 8 && (
                                 <p style={{ marginTop: '6px', fontSize: '13px', color: '#ef4444' }}>
-                                    Nieprawidłowy kod polecający
+                                    {t('register.errors.invalidReferralCode')}
                                 </p>
                             )}
                             {referralValid === true && (
                                 <p style={{ marginTop: '6px', fontSize: '13px', color: '#22c55e' }}>
-                                    ✓ Kod prawidłowy
+                                    ✓ {t('register.referral.codeValid')}
                                 </p>
                             )}
                         </div>
@@ -309,14 +285,14 @@ function Register() {
                             {loading ? (
                                 <>
                                     <Loader2 className="animate-spin" style={{ width: '20px', height: '20px' }} /> 
-                                    Tworzenie konta...
+                                    {t('register.creatingAccount')}
                                 </>
-                            ) : 'Zarejestruj się'}
+                            ) : t('register.submit')}
                         </button>
                     </form>
 
                     <p style={{ textAlign: 'center', color: '#94a3b8', marginTop: '24px' }}>
-                        Masz już konto? <Link to="/login" style={{ color: '#0ea5e9', textDecoration: 'none' }}>Zaloguj się</Link>
+                        {t('register.hasAccount')} <Link to="/login" style={{ color: '#0ea5e9', textDecoration: 'none' }}>{t('register.login')}</Link>
                     </p>
                 </div>
             </div>

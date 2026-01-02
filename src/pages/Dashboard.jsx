@@ -9,6 +9,7 @@ import {
 import toast from 'react-hot-toast';
 import api from '../api/axios';
 import ReferralSection from '../components/ReferralSection';
+import { useTranslation } from '../i18n';
 
 // 🔥 Hook do wykrywania rozmiaru ekranu
 const useWindowSize = () => {
@@ -36,6 +37,7 @@ const useWindowSize = () => {
 function Dashboard() {
     const navigate = useNavigate();
     const { isMobile, isTablet } = useWindowSize();
+    const { t } = useTranslation();
     
     const [user, setUser] = useState(null);
     const [links, setLinks] = useState([]);
@@ -97,7 +99,7 @@ function Dashboard() {
             setUser(response.data.user);
             localStorage.setItem('user', JSON.stringify(response.data.user));
         } catch (error) {
-            console.error('Błąd pobierania danych użytkownika:', error);
+            console.error('Error fetching user data:', error);
         }
     };
 
@@ -106,7 +108,7 @@ function Dashboard() {
             const response = await api.get('/links');
             setLinks(response.data.links);
         } catch (error) {
-            toast.error('Błąd pobierania linków');
+            toast.error(t('dashboard.errors.fetchLinks'));
         } finally {
             setLoading(false);
         }
@@ -121,30 +123,30 @@ function Dashboard() {
             setLinks([response.data.link, ...links]);
             setShowModal(false);
             setNewLink({ url: '', title: '' });
-            toast.success('Link utworzony!');
+            toast.success(t('dashboard.messages.linkCreated'));
         } catch (error) {
-            toast.error(error.response?.data?.error || 'Błąd tworzenia linka');
+            toast.error(error.response?.data?.error || t('dashboard.errors.createLink'));
         } finally {
             setCreating(false);
         }
     };
 
     const deleteLink = async (id) => {
-        if (!confirm('Czy na pewno chcesz usunąć ten link?')) return;
+        if (!confirm(t('dashboard.deleteConfirm'))) return;
 
         try {
             await api.delete(`/links/${id}`);
             setLinks(links.filter(l => l.id !== id));
-            toast.success('Link usunięty');
+            toast.success(t('dashboard.messages.linkDeleted'));
         } catch (error) {
-            toast.error('Błąd usuwania linka');
+            toast.error(t('dashboard.errors.deleteLink'));
         }
     };
 
     const copyLink = (shortUrl) => {
         const frontendUrl = shortUrl.replace(':3000', ':5173');
         navigator.clipboard.writeText(frontendUrl);
-        toast.success('Skopiowano do schowka!');
+        toast.success(t('common.copiedToClipboard'));
     };
 
     // 🆕 Funkcje edycji
@@ -154,7 +156,7 @@ function Dashboard() {
             originalUrl: link.originalUrl || '',
             title: link.title || '',
             description: link.description || '',
-            isActive: link.isActive !== false // domyślnie true
+            isActive: link.isActive !== false
         });
         setEditErrors({});
         setShowEditModal(true);
@@ -175,28 +177,25 @@ function Dashboard() {
     const validateEditForm = () => {
         const errors = {};
 
-        // Walidacja URL
         if (!editForm.originalUrl.trim()) {
-            errors.originalUrl = 'URL jest wymagany';
+            errors.originalUrl = t('dashboard.validation.urlRequired');
         } else {
             try {
                 const url = new URL(editForm.originalUrl);
                 if (!['http:', 'https:'].includes(url.protocol)) {
-                    errors.originalUrl = 'URL musi zaczynać się od http:// lub https://';
+                    errors.originalUrl = t('dashboard.validation.urlProtocol');
                 }
             } catch {
-                errors.originalUrl = 'Nieprawidłowy format URL';
+                errors.originalUrl = t('dashboard.validation.urlInvalid');
             }
         }
 
-        // Walidacja tytułu
         if (editForm.title && editForm.title.length > 100) {
-            errors.title = 'Tytuł może mieć maksymalnie 100 znaków';
+            errors.title = t('dashboard.validation.titleMaxLength');
         }
 
-        // Walidacja opisu
         if (editForm.description && editForm.description.length > 500) {
-            errors.description = 'Opis może mieć maksymalnie 500 znaków';
+            errors.description = t('dashboard.validation.descriptionMaxLength');
         }
 
         setEditErrors(errors);
@@ -220,7 +219,6 @@ function Dashboard() {
                 isActive: editForm.isActive
             });
 
-            // Zaktualizuj link w liście
             setLinks(links.map(l => 
                 l.id === editingLink.id 
                     ? { ...l, ...response.data.link }
@@ -228,9 +226,9 @@ function Dashboard() {
             ));
 
             closeEditModal();
-            toast.success('Link zaktualizowany!');
+            toast.success(t('dashboard.messages.linkUpdated'));
         } catch (error) {
-            toast.error(error.response?.data?.error || 'Błąd aktualizacji linka');
+            toast.error(error.response?.data?.error || t('dashboard.errors.updateLink'));
         } finally {
             setUpdating(false);
         }
@@ -246,12 +244,11 @@ function Dashboard() {
         localStorage.removeItem('user');
         setShowLogoutModal(false);
         navigate('/');
-        toast.success('Wylogowano');
+        toast.success(t('logout.success'));
     };
 
     // 🎨 Responsywne style
     const styles = {
-        // Navbar
         navbar: {
             borderBottom: '1px solid #1e293b',
             backgroundColor: 'rgba(15, 23, 42, 0.95)',
@@ -287,15 +284,11 @@ function Dashboard() {
             fontSize: isMobile ? '18px' : '20px',
             fontWeight: 'bold'
         },
-        
-        // Desktop nav
         desktopNav: {
             display: isMobile ? 'none' : 'flex',
             alignItems: 'center',
             gap: '16px'
         },
-        
-        // Mobile menu button
         mobileMenuButton: {
             display: isMobile ? 'flex' : 'none',
             alignItems: 'center',
@@ -308,8 +301,6 @@ function Dashboard() {
             cursor: 'pointer',
             borderRadius: '8px'
         },
-        
-        // Mobile menu overlay
         mobileMenuOverlay: {
             display: mobileMenuOpen ? 'block' : 'none',
             position: 'fixed',
@@ -317,8 +308,6 @@ function Dashboard() {
             backgroundColor: 'rgba(0, 0, 0, 0.5)',
             zIndex: 100
         },
-        
-        // Mobile menu drawer
         mobileMenuDrawer: {
             position: 'fixed',
             top: 0,
@@ -334,8 +323,6 @@ function Dashboard() {
             flexDirection: 'column',
             boxShadow: '-4px 0 20px rgba(0,0,0,0.3)'
         },
-        
-        // Mobile menu header
         mobileMenuHeader: {
             display: 'flex',
             justifyContent: 'space-between',
@@ -343,8 +330,6 @@ function Dashboard() {
             padding: '16px',
             borderBottom: '1px solid #334155'
         },
-        
-        // Mobile menu items
         mobileMenuItem: {
             display: 'flex',
             alignItems: 'center',
@@ -354,31 +339,23 @@ function Dashboard() {
             textDecoration: 'none',
             borderBottom: '1px solid #334155'
         },
-        
-        // Main content
         main: {
             maxWidth: '1200px',
             margin: '0 auto',
             padding: isMobile ? '16px 12px' : isTablet ? '24px 16px' : '32px 16px'
         },
-        
-        // Stats grid
         statsGrid: {
             display: 'grid',
             gridTemplateColumns: isMobile ? '1fr' : isTablet ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)',
             gap: isMobile ? '12px' : '16px',
             marginBottom: isMobile ? '20px' : '32px'
         },
-        
-        // Stat card
         statCard: {
             backgroundColor: 'rgba(30, 41, 59, 0.5)',
             border: '1px solid #334155',
             borderRadius: isMobile ? '10px' : '12px',
             padding: isMobile ? '16px' : '24px'
         },
-
-        // Tabs
         tabsContainer: {
             display: 'flex',
             gap: '8px',
@@ -405,15 +382,11 @@ function Dashboard() {
             color: '#0ea5e9',
             borderBottomColor: '#0ea5e9'
         },
-        
-        // Links section
         linksSection: {
             backgroundColor: 'rgba(30, 41, 59, 0.5)',
             border: '1px solid #334155',
             borderRadius: isMobile ? '10px' : '12px'
         },
-        
-        // Links header
         linksHeader: {
             padding: isMobile ? '16px' : '24px',
             borderBottom: '1px solid #334155',
@@ -423,14 +396,10 @@ function Dashboard() {
             alignItems: isMobile ? 'stretch' : 'center',
             gap: isMobile ? '12px' : '0'
         },
-        
-        // Link item
         linkItem: {
             padding: isMobile ? '12px 16px' : '16px 24px',
             borderBottom: '1px solid #1e293b'
         },
-        
-        // Link item content
         linkItemContent: {
             display: 'flex',
             flexDirection: isMobile ? 'column' : 'row',
@@ -438,8 +407,6 @@ function Dashboard() {
             justifyContent: 'space-between',
             gap: isMobile ? '12px' : '16px'
         },
-        
-        // Link item stats row (mobile)
         linkItemStats: {
             display: 'flex',
             alignItems: 'center',
@@ -447,8 +414,6 @@ function Dashboard() {
             gap: isMobile ? '12px' : '24px',
             flexWrap: 'wrap'
         },
-        
-        // New link button
         newLinkButton: {
             display: 'flex',
             alignItems: 'center',
@@ -464,8 +429,6 @@ function Dashboard() {
             width: isMobile ? '100%' : 'auto',
             minHeight: '44px'
         },
-        
-        // Modal
         modalOverlay: {
             position: 'fixed',
             inset: 0,
@@ -477,7 +440,6 @@ function Dashboard() {
             zIndex: 50,
             padding: isMobile ? '0' : '16px'
         },
-        
         modalContent: {
             backgroundColor: '#1e293b',
             border: '1px solid #334155',
@@ -488,8 +450,6 @@ function Dashboard() {
             maxHeight: isMobile ? '90vh' : '85vh',
             overflow: 'auto'
         },
-        
-        // Nav icon button
         navIconButton: {
             padding: '8px',
             color: '#94a3b8',
@@ -500,8 +460,6 @@ function Dashboard() {
             minHeight: '44px',
             justifyContent: 'center'
         },
-        
-        // Action button (copy, delete, etc)
         actionButton: {
             padding: '10px',
             color: '#94a3b8',
@@ -515,8 +473,6 @@ function Dashboard() {
             alignItems: 'center',
             justifyContent: 'center'
         },
-
-        // 🆕 Style dla formularza edycji
         inputGroup: {
             marginBottom: '16px'
         },
@@ -633,47 +589,44 @@ function Dashboard() {
             <nav style={styles.navbar}>
                 <div style={styles.navContainer}>
                     <div style={styles.navContent}>
-                        {/* Logo */}
                         <Link to="/" style={styles.logo}>
                             <Link2 style={styles.logoIcon} />
                             <span style={styles.logoText}>AngoraLinks</span>
                         </Link>
 
-                        {/* Desktop Navigation */}
                         <div style={styles.desktopNav}>
                             <div style={{ textAlign: 'right' }}>
-                                <p style={{ fontSize: '14px', color: '#94a3b8', margin: 0 }}>Saldo</p>
+                                <p style={{ fontSize: '14px', color: '#94a3b8', margin: 0 }}>{t('dashboard.stats.balance')}</p>
                                 <p style={{ fontWeight: '600', color: '#0ea5e9', margin: 0 }}>
                                     ${user?.balance?.toFixed(4) || '0.0000'}
                                 </p>
                             </div>
                             {user?.isAdmin && (
-                                <Link to="/admin" style={{ ...styles.navIconButton, color: '#ef4444' }} title="Panel Admina">
+                                <Link to="/admin" style={{ ...styles.navIconButton, color: '#ef4444' }} title={t('navbar.admin')}>
                                     <Shield style={{ width: '20px', height: '20px' }} />
                                 </Link>
                             )}
-                            <Link to="/stats" style={styles.navIconButton} title="Statystyki">
+                            <Link to="/stats" style={styles.navIconButton} title={t('navbar.stats')}>
                                 <BarChart3 style={{ width: '20px', height: '20px' }} />
                             </Link>
-                            <Link to="/cpm-rates" style={{ ...styles.navIconButton, color: '#22c55e' }} title="Stawki CPM">
+                            <Link to="/cpm-rates" style={{ ...styles.navIconButton, color: '#22c55e' }} title={t('cpmRates.title')}>
                                 <Globe style={{ width: '20px', height: '20px' }} />
                             </Link>
-                            <Link to="/payouts" style={styles.navIconButton} title="Wypłaty">
+                            <Link to="/payouts" style={styles.navIconButton} title={t('navbar.payouts')}>
                                 <Wallet style={{ width: '20px', height: '20px' }} />
                             </Link>
-                            <Link to="/profile" style={styles.navIconButton} title="Profil">
+                            <Link to="/profile" style={styles.navIconButton} title={t('navbar.profile')}>
                                 <User style={{ width: '20px', height: '20px' }} />
                             </Link>
-                            <button onClick={handleLogoutClick} style={styles.actionButton} title="Wyloguj">
+                            <button onClick={handleLogoutClick} style={styles.actionButton} title={t('navbar.logout')}>
                                 <LogOut style={{ width: '20px', height: '20px' }} />
                             </button>
                         </div>
 
-                        {/* Mobile: Balance + Hamburger */}
                         {isMobile && (
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <div style={{ textAlign: 'right', marginRight: '4px' }}>
-                                    <p style={{ fontSize: '12px', color: '#94a3b8', margin: 0 }}>Saldo</p>
+                                    <p style={{ fontSize: '12px', color: '#94a3b8', margin: 0 }}>{t('dashboard.stats.balance')}</p>
                                     <p style={{ fontWeight: '600', color: '#0ea5e9', margin: 0, fontSize: '14px' }}>
                                         ${user?.balance?.toFixed(4) || '0.0000'}
                                     </p>
@@ -681,7 +634,7 @@ function Dashboard() {
                                 <button 
                                     onClick={() => setMobileMenuOpen(true)} 
                                     style={styles.mobileMenuButton}
-                                    aria-label="Otwórz menu"
+                                    aria-label={t('common.menu')}
                                 >
                                     <Menu style={{ width: '24px', height: '24px' }} />
                                 </button>
@@ -691,34 +644,30 @@ function Dashboard() {
                 </div>
             </nav>
 
-            {/* Mobile Menu Overlay */}
             <div 
                 style={styles.mobileMenuOverlay} 
                 onClick={() => setMobileMenuOpen(false)}
             />
 
-            {/* Mobile Menu Drawer */}
             <div style={styles.mobileMenuDrawer}>
                 <div style={styles.mobileMenuHeader}>
-                    <span style={{ fontWeight: '600', fontSize: '18px' }}>Menu</span>
+                    <span style={{ fontWeight: '600', fontSize: '18px' }}>{t('common.menu')}</span>
                     <button 
                         onClick={() => setMobileMenuOpen(false)}
                         style={styles.actionButton}
-                        aria-label="Zamknij menu"
+                        aria-label={t('common.close')}
                     >
                         <X style={{ width: '24px', height: '24px' }} />
                     </button>
                 </div>
 
-                {/* Mobile Balance Card */}
                 <div style={{ padding: '16px', borderBottom: '1px solid #334155', backgroundColor: 'rgba(14, 165, 233, 0.1)' }}>
-                    <p style={{ fontSize: '12px', color: '#94a3b8', margin: '0 0 4px 0' }}>Twoje saldo</p>
+                    <p style={{ fontSize: '12px', color: '#94a3b8', margin: '0 0 4px 0' }}>{t('dashboard.stats.balance')}</p>
                     <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#0ea5e9', margin: 0 }}>
                         ${user?.balance?.toFixed(4) || '0.0000'}
                     </p>
                 </div>
 
-                {/* Mobile Menu Items */}
                 <div style={{ flex: 1, overflow: 'auto' }}>
                     {user?.isAdmin && (
                         <Link 
@@ -727,7 +676,7 @@ function Dashboard() {
                             onClick={() => setMobileMenuOpen(false)}
                         >
                             <Shield style={{ width: '20px', height: '20px' }} />
-                            Panel Admina
+                            {t('navbar.admin')}
                         </Link>
                     )}
                     <Link 
@@ -736,7 +685,7 @@ function Dashboard() {
                         onClick={() => setMobileMenuOpen(false)}
                     >
                         <BarChart3 style={{ width: '20px', height: '20px' }} />
-                        Statystyki
+                        {t('navbar.stats')}
                     </Link>
                     <Link 
                         to="/cpm-rates" 
@@ -744,7 +693,7 @@ function Dashboard() {
                         onClick={() => setMobileMenuOpen(false)}
                     >
                         <Globe style={{ width: '20px', height: '20px' }} />
-                        Stawki CPM
+                        {t('cpmRates.title')}
                     </Link>
                     <Link 
                         to="/payouts" 
@@ -752,7 +701,7 @@ function Dashboard() {
                         onClick={() => setMobileMenuOpen(false)}
                     >
                         <Wallet style={{ width: '20px', height: '20px' }} />
-                        Wypłaty
+                        {t('navbar.payouts')}
                     </Link>
                     <Link 
                         to="/profile" 
@@ -760,11 +709,10 @@ function Dashboard() {
                         onClick={() => setMobileMenuOpen(false)}
                     >
                         <User style={{ width: '20px', height: '20px' }} />
-                        Profil
+                        {t('navbar.profile')}
                     </Link>
                 </div>
 
-                {/* Logout at bottom */}
                 <div style={{ padding: '16px', borderTop: '1px solid #334155' }}>
                     <button
                         onClick={handleLogoutClick}
@@ -784,14 +732,12 @@ function Dashboard() {
                         }}
                     >
                         <LogOut style={{ width: '20px', height: '20px' }} />
-                        Wyloguj się
+                        {t('navbar.logout')}
                     </button>
                 </div>
             </div>
 
-            {/* Main Content */}
             <main style={styles.main}>
-                {/* Stats Cards */}
                 <div style={styles.statsGrid}>
                     <div style={styles.statCard}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -808,7 +754,7 @@ function Dashboard() {
                                 <Link2 style={{ width: '20px', height: '20px', color: '#0ea5e9' }} />
                             </div>
                             <div>
-                                <p style={{ fontSize: '14px', color: '#94a3b8', margin: 0 }}>Wszystkie linki</p>
+                                <p style={{ fontSize: '14px', color: '#94a3b8', margin: 0 }}>{t('dashboard.stats.allLinks')}</p>
                                 <p style={{ fontSize: '24px', fontWeight: 'bold', margin: 0 }}>{links.length}</p>
                             </div>
                         </div>
@@ -828,7 +774,7 @@ function Dashboard() {
                                 <MousePointer style={{ width: '20px', height: '20px', color: '#22c55e' }} />
                             </div>
                             <div>
-                                <p style={{ fontSize: '14px', color: '#94a3b8', margin: 0 }}>Całkowite kliknięcia</p>
+                                <p style={{ fontSize: '14px', color: '#94a3b8', margin: 0 }}>{t('dashboard.stats.totalClicks')}</p>
                                 <p style={{ fontSize: '24px', fontWeight: 'bold', margin: 0 }}>
                                     {links.reduce((acc, l) => acc + l.totalClicks, 0)}
                                 </p>
@@ -850,7 +796,7 @@ function Dashboard() {
                                 <DollarSign style={{ width: '20px', height: '20px', color: '#eab308' }} />
                             </div>
                             <div>
-                                <p style={{ fontSize: '14px', color: '#94a3b8', margin: 0 }}>Zarobione (85%)</p>
+                                <p style={{ fontSize: '14px', color: '#94a3b8', margin: 0 }}>{t('dashboard.stats.earned')}</p>
                                 <p style={{ fontSize: '24px', fontWeight: 'bold', margin: 0 }}>
                                     ${links.reduce((acc, l) => acc + (parseFloat(l.totalEarned) || 0), 0).toFixed(4)}
                                 </p>
@@ -859,7 +805,6 @@ function Dashboard() {
                     </div>
                 </div>
 
-                {/* 🆕 Tabs */}
                 <div style={styles.tabsContainer}>
                     <button
                         onClick={() => setActiveTab('links')}
@@ -869,7 +814,7 @@ function Dashboard() {
                         }}
                     >
                         <Link2 style={{ width: '18px', height: '18px' }} />
-                        Moje linki
+                        {t('dashboard.tabs.links')}
                     </button>
                     <button
                         onClick={() => setActiveTab('referrals')}
@@ -879,30 +824,28 @@ function Dashboard() {
                         }}
                     >
                         <Gift style={{ width: '18px', height: '18px' }} />
-                        Polecenia
+                        {t('dashboard.tabs.referrals')}
                     </button>
                 </div>
 
-                {/* 🆕 Tab Content */}
                 {activeTab === 'referrals' ? (
                     <ReferralSection isMobile={isMobile} />
                 ) : (
-                    /* Links Section */
                     <div style={styles.linksSection}>
                         <div style={styles.linksHeader}>
                             <h2 style={{ fontSize: isMobile ? '18px' : '20px', fontWeight: '600', margin: 0 }}>
-                                Twoje linki
+                                {t('dashboard.yourLinks')}
                             </h2>
                             <button onClick={() => setShowModal(true)} style={styles.newLinkButton}>
                                 <Plus style={{ width: '16px', height: '16px' }} />
-                                Nowy link
+                                {t('dashboard.links.create')}
                             </button>
                         </div>
 
                         {links.length === 0 ? (
                             <div style={{ padding: isMobile ? '32px 16px' : '48px', textAlign: 'center' }}>
                                 <Link2 style={{ width: '48px', height: '48px', color: '#475569', margin: '0 auto 16px' }} />
-                                <p style={{ color: '#94a3b8' }}>Nie masz jeszcze żadnych linków</p>
+                                <p style={{ color: '#94a3b8' }}>{t('dashboard.links.noLinks')}</p>
                                 <button
                                     onClick={() => setShowModal(true)}
                                     style={{ 
@@ -915,7 +858,7 @@ function Dashboard() {
                                         fontSize: '16px'
                                     }}
                                 >
-                                    Utwórz pierwszy link
+                                    {t('dashboard.links.createFirst')}
                                 </button>
                             </div>
                         ) : (
@@ -929,7 +872,6 @@ function Dashboard() {
                                         }}
                                     >
                                         <div style={styles.linkItemContent}>
-                                            {/* Link Info */}
                                             <div style={{ flex: 1, minWidth: 0 }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
                                                     <p style={{ 
@@ -942,11 +884,10 @@ function Dashboard() {
                                                     }}>
                                                         {link.title || link.originalUrl}
                                                     </p>
-                                                    {/* 🆕 Indicator nieaktywnego linka */}
                                                     {link.isActive === false && (
                                                         <span style={styles.inactiveIndicator}>
                                                             <X style={{ width: '12px', height: '12px' }} />
-                                                            Nieaktywny
+                                                            {t('dashboard.links.inactive')}
                                                         </span>
                                                     )}
                                                 </div>
@@ -965,33 +906,31 @@ function Dashboard() {
                                                 </p>
                                             </div>
 
-                                            {/* Stats + Actions */}
                                             <div style={styles.linkItemStats}>
                                                 <div style={{ textAlign: 'center', minWidth: '60px' }}>
-                                                    <p style={{ fontSize: '12px', color: '#94a3b8', margin: 0 }}>Kliknięcia</p>
+                                                    <p style={{ fontSize: '12px', color: '#94a3b8', margin: 0 }}>{t('dashboard.links.clicks')}</p>
                                                     <p style={{ fontWeight: '600', margin: 0, fontSize: isMobile ? '16px' : '14px' }}>
                                                         {link.totalClicks}
                                                     </p>
                                                 </div>
                                                 <div style={{ textAlign: 'center', minWidth: '70px' }}>
-                                                    <p style={{ fontSize: '12px', color: '#94a3b8', margin: 0 }}>Zarobione</p>
+                                                    <p style={{ fontSize: '12px', color: '#94a3b8', margin: 0 }}>{t('dashboard.links.earned')}</p>
                                                     <p style={{ fontWeight: '600', color: '#22c55e', margin: 0, fontSize: isMobile ? '16px' : '14px' }}>
                                                         ${parseFloat(link.totalEarned || 0).toFixed(4)}
                                                     </p>
                                                 </div>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                    {/* 🆕 Przycisk Edytuj */}
                                                     <button
                                                         onClick={() => openEditModal(link)}
                                                         style={{ ...styles.actionButton, color: '#0ea5e9' }}
-                                                        title="Edytuj"
+                                                        title={t('common.edit')}
                                                     >
                                                         <Edit3 style={{ width: '18px', height: '18px' }} />
                                                     </button>
                                                     <button
                                                         onClick={() => copyLink(link.shortUrl)}
                                                         style={styles.actionButton}
-                                                        title="Kopiuj"
+                                                        title={t('dashboard.links.copyLink')}
                                                     >
                                                         <Copy style={{ width: '18px', height: '18px' }} />
                                                     </button>
@@ -1000,14 +939,14 @@ function Dashboard() {
                                                         target="_blank"
                                                         rel="noopener noreferrer"
                                                         style={styles.actionButton}
-                                                        title="Otwórz"
+                                                        title={t('dashboard.links.openOriginal')}
                                                     >
                                                         <ExternalLink style={{ width: '18px', height: '18px' }} />
                                                     </a>
                                                     <button
                                                         onClick={() => deleteLink(link.id)}
                                                         style={{ ...styles.actionButton, color: '#ef4444' }}
-                                                        title="Usuń"
+                                                        title={t('common.delete')}
                                                     >
                                                         <Trash2 style={{ width: '18px', height: '18px' }} />
                                                     </button>
@@ -1022,7 +961,6 @@ function Dashboard() {
                 )}
             </main>
 
-            {/* Create Link Modal */}
             {showModal && (
                 <div 
                     style={styles.modalOverlay}
@@ -1031,7 +969,6 @@ function Dashboard() {
                     }}
                 >
                     <div style={styles.modalContent}>
-                        {/* Mobile drag indicator */}
                         {isMobile && (
                             <div style={{ 
                                 width: '40px', 
@@ -1041,11 +978,11 @@ function Dashboard() {
                                 margin: '0 auto 16px' 
                             }} />
                         )}
-                        <h2 style={{ fontSize: '20px', fontWeight: '600', marginBottom: '16px' }}>Nowy link</h2>
+                        <h2 style={{ fontSize: '20px', fontWeight: '600', marginBottom: '16px' }}>{t('dashboard.createModal.title')}</h2>
                         <form onSubmit={createLink}>
                             <div style={{ marginBottom: '16px' }}>
                                 <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#cbd5e1', marginBottom: '8px' }}>
-                                    URL do skrócenia *
+                                    {t('dashboard.createModal.urlLabel')} *
                                 </label>
                                 <input
                                     type="url"
@@ -1061,14 +998,14 @@ function Dashboard() {
                                         fontSize: '16px',
                                         boxSizing: 'border-box'
                                     }}
-                                    placeholder="https://example.com/long-url"
+                                    placeholder={t('dashboard.createModal.urlPlaceholder')}
                                     required
                                     autoFocus={!isMobile}
                                 />
                             </div>
                             <div style={{ marginBottom: '24px' }}>
                                 <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#cbd5e1', marginBottom: '8px' }}>
-                                    Tytuł (opcjonalnie)
+                                    {t('dashboard.createModal.titleLabel')}
                                 </label>
                                 <input
                                     type="text"
@@ -1084,7 +1021,7 @@ function Dashboard() {
                                         fontSize: '16px',
                                         boxSizing: 'border-box'
                                     }}
-                                    placeholder="Mój link"
+                                    placeholder={t('dashboard.createModal.titlePlaceholder')}
                                 />
                             </div>
                             <div style={{ display: 'flex', gap: '12px', flexDirection: isMobile ? 'column-reverse' : 'row' }}>
@@ -1103,7 +1040,7 @@ function Dashboard() {
                                         minHeight: '48px'
                                     }}
                                 >
-                                    Anuluj
+                                    {t('common.cancel')}
                                 </button>
                                 <button
                                     type="submit"
@@ -1128,7 +1065,7 @@ function Dashboard() {
                                     {creating ? (
                                         <Loader2 className="animate-spin" style={{ width: '20px', height: '20px' }} />
                                     ) : (
-                                        'Utwórz'
+                                        t('dashboard.createModal.create')
                                     )}
                                 </button>
                             </div>
@@ -1137,7 +1074,6 @@ function Dashboard() {
                 </div>
             )}
 
-            {/* 🆕 Edit Link Modal */}
             {showEditModal && editingLink && (
                 <div 
                     style={styles.modalOverlay}
@@ -1146,7 +1082,6 @@ function Dashboard() {
                     }}
                 >
                     <div style={styles.modalContent}>
-                        {/* Mobile drag indicator */}
                         {isMobile && (
                             <div style={{ 
                                 width: '40px', 
@@ -1157,9 +1092,8 @@ function Dashboard() {
                             }} />
                         )}
                         
-                        {/* Header */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                            <h2 style={{ fontSize: '20px', fontWeight: '600', margin: 0 }}>Edytuj link</h2>
+                            <h2 style={{ fontSize: '20px', fontWeight: '600', margin: 0 }}>{t('dashboard.editModal.title')}</h2>
                             <button
                                 onClick={closeEditModal}
                                 style={{ ...styles.actionButton, padding: '8px' }}
@@ -1168,24 +1102,22 @@ function Dashboard() {
                             </button>
                         </div>
 
-                        {/* Short URL info */}
                         <div style={{ 
                             padding: '12px 16px', 
                             backgroundColor: 'rgba(14, 165, 233, 0.1)', 
                             borderRadius: '8px', 
                             marginBottom: '20px' 
                         }}>
-                            <p style={{ fontSize: '12px', color: '#94a3b8', margin: '0 0 4px 0' }}>Skrócony URL</p>
+                            <p style={{ fontSize: '12px', color: '#94a3b8', margin: '0 0 4px 0' }}>{t('dashboard.editModal.shortUrl')}</p>
                             <p style={{ fontSize: '14px', color: '#0ea5e9', margin: 0, fontWeight: '500' }}>
                                 {editingLink.shortUrl?.replace(':3000', ':5173')}
                             </p>
                         </div>
 
                         <form onSubmit={handleEditSubmit}>
-                            {/* URL */}
                             <div style={styles.inputGroup}>
                                 <label style={styles.label}>
-                                    Docelowy URL *
+                                    {t('dashboard.editModal.urlLabel')} *
                                 </label>
                                 <input
                                     type="url"
@@ -1210,10 +1142,9 @@ function Dashboard() {
                                 )}
                             </div>
 
-                            {/* Title */}
                             <div style={styles.inputGroup}>
                                 <label style={styles.label}>
-                                    Tytuł (opcjonalnie)
+                                    {t('dashboard.editModal.titleLabel')}
                                 </label>
                                 <input
                                     type="text"
@@ -1228,7 +1159,7 @@ function Dashboard() {
                                         ...styles.input,
                                         ...(editErrors.title ? styles.inputError : {})
                                     }}
-                                    placeholder="Mój link"
+                                    placeholder={t('dashboard.createModal.titlePlaceholder')}
                                     maxLength={100}
                                 />
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1242,10 +1173,9 @@ function Dashboard() {
                                 </div>
                             </div>
 
-                            {/* Description */}
                             <div style={styles.inputGroup}>
                                 <label style={styles.label}>
-                                    Opis (opcjonalnie)
+                                    {t('dashboard.editModal.descriptionLabel')}
                                 </label>
                                 <textarea
                                     value={editForm.description}
@@ -1259,7 +1189,7 @@ function Dashboard() {
                                         ...styles.textarea,
                                         ...(editErrors.description ? styles.inputError : {})
                                     }}
-                                    placeholder="Opis linka..."
+                                    placeholder={t('dashboard.editModal.descriptionPlaceholder')}
                                     maxLength={500}
                                 />
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1273,12 +1203,11 @@ function Dashboard() {
                                 </div>
                             </div>
 
-                            {/* Active Toggle */}
                             <div style={styles.toggleContainer}>
                                 <div>
-                                    <p style={{ margin: 0, fontWeight: '500', fontSize: '14px' }}>Status linka</p>
+                                    <p style={{ margin: 0, fontWeight: '500', fontSize: '14px' }}>{t('dashboard.editModal.statusLabel')}</p>
                                     <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#94a3b8' }}>
-                                        {editForm.isActive ? 'Link jest aktywny i działa' : 'Link jest wyłączony'}
+                                        {editForm.isActive ? t('dashboard.editModal.statusActive') : t('dashboard.editModal.statusInactive')}
                                     </p>
                                 </div>
                                 <div 
@@ -1290,7 +1219,6 @@ function Dashboard() {
                                 </div>
                             </div>
 
-                            {/* Buttons */}
                             <div style={{ display: 'flex', gap: '12px', flexDirection: isMobile ? 'column-reverse' : 'row', marginTop: '24px' }}>
                                 <button
                                     type="button"
@@ -1307,7 +1235,7 @@ function Dashboard() {
                                         minHeight: '48px'
                                     }}
                                 >
-                                    Anuluj
+                                    {t('common.cancel')}
                                 </button>
                                 <button
                                     type="submit"
@@ -1334,7 +1262,7 @@ function Dashboard() {
                                     ) : (
                                         <>
                                             <Check style={{ width: '18px', height: '18px' }} />
-                                            Zapisz zmiany
+                                            {t('dashboard.editModal.save')}
                                         </>
                                     )}
                                 </button>
@@ -1344,7 +1272,6 @@ function Dashboard() {
                 </div>
             )}
 
-            {/* Logout Confirmation Modal */}
             {showLogoutModal && (
                 <div 
                     style={styles.modalOverlay}
@@ -1353,7 +1280,6 @@ function Dashboard() {
                     }}
                 >
                     <div style={{ ...styles.modalContent, textAlign: 'center' }}>
-                        {/* Mobile drag indicator */}
                         {isMobile && (
                             <div style={{ 
                                 width: '40px', 
@@ -1377,11 +1303,11 @@ function Dashboard() {
                         </div>
 
                         <h2 style={{ fontSize: '20px', fontWeight: '600', marginBottom: '12px', color: '#f8fafc' }}>
-                            Wylogowanie
+                            {t('logout.confirmTitle')}
                         </h2>
 
                         <p style={{ fontSize: '14px', color: '#94a3b8', marginBottom: '24px', lineHeight: '1.5' }}>
-                            Czy na pewno chcesz się wylogować z konta?
+                            {t('logout.confirmMessage')}
                         </p>
 
                         <div style={{ display: 'flex', gap: '12px', flexDirection: isMobile ? 'column-reverse' : 'row' }}>
@@ -1399,7 +1325,7 @@ function Dashboard() {
                                     minHeight: '48px'
                                 }}
                             >
-                                Anuluj
+                                {t('common.cancel')}
                             </button>
                             <button
                                 onClick={handleLogoutConfirm}
@@ -1420,7 +1346,7 @@ function Dashboard() {
                                 }}
                             >
                                 <LogOut style={{ width: '16px', height: '16px' }} />
-                                Wyloguj
+                                {t('navbar.logout')}
                             </button>
                         </div>
                     </div>

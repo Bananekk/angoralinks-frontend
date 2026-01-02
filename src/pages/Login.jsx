@@ -9,6 +9,7 @@ import {
     getWebAuthnLoginOptions, 
     isWebAuthnSupported 
 } from '../api/twoFactor';
+import { useTranslation } from '../i18n';
 
 // ============================================
 // HELPERY WebAuthn
@@ -41,6 +42,7 @@ const bufferToBase64URL = (buffer) => {
 
 function Login() {
     const navigate = useNavigate();
+    const { t } = useTranslation();
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({ email: '', password: '' });
     
@@ -55,7 +57,7 @@ function Login() {
     
     // WebAuthn state
     const [webAuthnLoading, setWebAuthnLoading] = useState(false);
-    const webAuthnInProgress = useRef(false); // 🆕 Blokada wielokrotnego wywołania
+    const webAuthnInProgress = useRef(false);
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -82,24 +84,24 @@ function Login() {
                     setSelectedMethod(methods[0]);
                 }
                 
-                toast.success('Wprowadź kod 2FA lub użyj klucza');
+                toast.success(t('login.twoFactor.enterCodeOrKey'));
                 return;
             }
             
             if (response.data.requiresTwoFactorSetup) {
                 setTwoFactorSetupRequired(true);
                 setChallengeToken(response.data.setupToken);
-                toast('Administrator wymaga włączenia 2FA', { icon: '🔐' });
+                toast(t('login.twoFactor.adminRequires2FA'), { icon: '🔐' });
                 return;
             }
             
             localStorage.setItem('token', response.data.token);
             localStorage.setItem('user', JSON.stringify(response.data.user));
-            toast.success('Zalogowano pomyślnie!');
+            toast.success(t('login.messages.success'));
             navigate('/dashboard');
             
         } catch (error) {
-            toast.error(error.response?.data?.error || 'Błąd logowania');
+            toast.error(error.response?.data?.error || t('login.errors.loginFailed'));
         } finally {
             setLoading(false);
         }
@@ -109,7 +111,7 @@ function Login() {
         e.preventDefault();
         
         if (!twoFactorCode || twoFactorCode.length < 6) {
-            toast.error('Wprowadź poprawny kod');
+            toast.error(t('login.errors.enterValidCode'));
             return;
         }
         
@@ -124,27 +126,24 @@ function Login() {
             
             localStorage.setItem('token', response.token);
             localStorage.setItem('user', JSON.stringify(response.user));
-            toast.success('Zalogowano pomyślnie!');
+            toast.success(t('login.messages.success'));
             navigate('/dashboard');
             
         } catch (error) {
-            toast.error(error.response?.data?.error || 'Nieprawidłowy kod');
+            toast.error(error.response?.data?.error || t('login.errors.invalidCode'));
             setTwoFactorCode('');
         } finally {
             setVerifying2FA(false);
         }
     };
 
-    // 🆕 Poprawiona weryfikacja WebAuthn z blokadą
     const handleWebAuthnLogin = async () => {
-        // Blokada wielokrotnego wywołania
         if (webAuthnInProgress.current || webAuthnLoading) {
-            console.log('WebAuthn already in progress, skipping...');
             return;
         }
 
         if (!isWebAuthnSupported()) {
-            toast.error('Twoja przeglądarka nie obsługuje kluczy bezpieczeństwa');
+            toast.error(t('login.errors.webAuthnNotSupported'));
             return;
         }
 
@@ -152,13 +151,9 @@ function Login() {
         setWebAuthnLoading(true);
 
         try {
-            // 1. Pobierz opcje autentykacji z serwera
-            console.log('Fetching WebAuthn options...');
             const optionsResponse = await getWebAuthnLoginOptions(challengeToken);
             const options = optionsResponse.data;
-            console.log('Got options:', options);
 
-            // 2. Konwertuj dane z base64url
             const publicKeyOptions = {
                 ...options,
                 challenge: base64URLToBuffer(options.challenge),
@@ -168,14 +163,10 @@ function Login() {
                 })) || []
             };
 
-            // 3. Wywołaj WebAuthn API
-            console.log('Calling navigator.credentials.get...');
             const credential = await navigator.credentials.get({
                 publicKey: publicKeyOptions
             });
-            console.log('Got credential:', credential);
 
-            // 4. Przygotuj odpowiedź dla serwera
             const webauthnResponse = {
                 id: credential.id,
                 rawId: bufferToBase64URL(credential.rawId),
@@ -190,37 +181,32 @@ function Login() {
                 }
             };
 
-            // 5. Zweryfikuj na serwerze
-            console.log('Verifying on server...');
             const verifyResponse = await api.post('/auth/2fa/verify', {
                 challengeToken,
                 response: webauthnResponse,
                 method: 'WEBAUTHN'
             });
 
-            // 6. Zaloguj użytkownika
             if (verifyResponse.data.success) {
                 localStorage.setItem('token', verifyResponse.data.token);
                 localStorage.setItem('user', JSON.stringify(verifyResponse.data.user));
-                toast.success('Zalogowano pomyślnie!');
+                toast.success(t('login.messages.success'));
                 navigate('/dashboard');
             } else {
-                throw new Error(verifyResponse.data.error || 'Błąd weryfikacji');
+                throw new Error(verifyResponse.data.error || t('login.errors.verificationFailed'));
             }
 
         } catch (error) {
-            console.error('WebAuthn login error:', error);
-            
             if (error.name === 'NotAllowedError') {
-                toast.error('Weryfikacja została anulowana');
+                toast.error(t('login.errors.verificationCancelled'));
             } else if (error.name === 'SecurityError') {
-                toast.error('Błąd bezpieczeństwa - sprawdź czy używasz HTTPS');
+                toast.error(t('login.errors.securityError'));
             } else if (error.name === 'InvalidStateError') {
-                toast.error('Klucz nie jest zarejestrowany dla tego konta');
+                toast.error(t('login.errors.keyNotRegistered'));
             } else if (error.response?.data?.error) {
                 toast.error(error.response.data.error);
             } else {
-                toast.error('Błąd weryfikacji klucza');
+                toast.error(t('login.errors.keyVerificationFailed'));
             }
         } finally {
             setWebAuthnLoading(false);
@@ -235,7 +221,7 @@ function Login() {
         setTwoFactorCode('');
         setSelectedMethod('TOTP');
         setFormData({ email: '', password: '' });
-        webAuthnInProgress.current = false; // 🆕 Reset blokady
+        webAuthnInProgress.current = false;
     };
 
     const inputStyle = {
@@ -286,9 +272,9 @@ function Login() {
                     <div style={{ backgroundColor: 'rgba(30, 41, 59, 0.5)', border: '1px solid #334155', borderRadius: '16px', padding: '32px 24px' }}>
                         <div style={{ textAlign: 'center', marginBottom: '24px' }}>
                             <Shield style={{ width: '48px', height: '48px', color: '#0ea5e9', margin: '0 auto 16px' }} />
-                            <h1 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '8px' }}>Weryfikacja 2FA</h1>
+                            <h1 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '8px' }}>{t('login.twoFactor.title')}</h1>
                             <p style={{ color: '#94a3b8', fontSize: '14px' }}>
-                                Potwierdź swoją tożsamość
+                                {t('login.twoFactor.confirmIdentity')}
                             </p>
                         </div>
 
@@ -317,14 +303,14 @@ function Login() {
                                     {webAuthnLoading ? (
                                         <>
                                             <Loader2 className="animate-spin" style={{ width: '32px', height: '32px' }} />
-                                            <span style={{ fontWeight: 'bold', fontSize: '16px' }}>Oczekiwanie na klucz...</span>
+                                            <span style={{ fontWeight: 'bold', fontSize: '16px' }}>{t('login.twoFactor.waitingForKey')}</span>
                                         </>
                                     ) : (
                                         <>
                                             <Fingerprint style={{ width: '32px', height: '32px' }} />
-                                            <span style={{ fontWeight: 'bold', fontSize: '16px' }}>Użyj klucza bezpieczeństwa</span>
+                                            <span style={{ fontWeight: 'bold', fontSize: '16px' }}>{t('login.twoFactor.useSecurityKey')}</span>
                                             <span style={{ fontSize: '13px', color: '#86efac' }}>
-                                                Touch ID, Face ID, Windows Hello lub YubiKey
+                                                {t('login.twoFactor.keyOptions')}
                                             </span>
                                         </>
                                     )}
@@ -340,7 +326,7 @@ function Login() {
                                         color: '#64748b'
                                     }}>
                                         <div style={{ flex: 1, height: '1px', backgroundColor: '#334155' }} />
-                                        <span style={{ fontSize: '13px' }}>lub użyj kodu</span>
+                                        <span style={{ fontSize: '13px' }}>{t('login.twoFactor.orUseCode')}</span>
                                         <div style={{ flex: 1, height: '1px', backgroundColor: '#334155' }} />
                                     </div>
                                 )}
@@ -369,7 +355,7 @@ function Login() {
                                             }}
                                         >
                                             <Smartphone style={{ width: '16px', height: '16px' }} />
-                                            Aplikacja
+                                            {t('login.twoFactor.app')}
                                         </button>
                                     )}
                                     {hasWebAuthn && isWebAuthnSupported() && (
@@ -390,7 +376,7 @@ function Login() {
                                             }}
                                         >
                                             <Fingerprint style={{ width: '16px', height: '16px' }} />
-                                            Klucz
+                                            {t('login.twoFactor.key')}
                                         </button>
                                     )}
                                     <button
@@ -410,7 +396,7 @@ function Login() {
                                         }}
                                     >
                                         <Key style={{ width: '16px', height: '16px' }} />
-                                        Zapasowy
+                                        {t('login.twoFactor.backup')}
                                     </button>
                                 </div>
 
@@ -420,8 +406,8 @@ function Login() {
                                         <div style={{ marginBottom: '24px' }}>
                                             <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#cbd5e1', marginBottom: '8px', textAlign: 'center' }}>
                                                 {selectedMethod === 'BACKUP_CODE' 
-                                                    ? 'Kod zapasowy (8 znaków)' 
-                                                    : 'Kod z aplikacji (6 cyfr)'
+                                                    ? t('login.twoFactor.backupCode8Chars')
+                                                    : t('login.twoFactor.appCode6Digits')
                                                 }
                                             </label>
                                             <input 
@@ -465,9 +451,9 @@ function Login() {
                                             }}
                                         >
                                             {verifying2FA ? (
-                                                <><Loader2 className="animate-spin" style={{ width: '20px', height: '20px' }} /> Weryfikacja...</>
+                                                <><Loader2 className="animate-spin" style={{ width: '20px', height: '20px' }} /> {t('login.twoFactor.verifying')}</>
                                             ) : (
-                                                <><Shield style={{ width: '20px', height: '20px' }} /> Zweryfikuj</>
+                                                <><Shield style={{ width: '20px', height: '20px' }} /> {t('login.twoFactor.verify')}</>
                                             )}
                                         </button>
                                     </form>
@@ -490,32 +476,32 @@ function Login() {
                                 fontSize: '14px'
                             }}
                         >
-                            Wróć do logowania
+                            {t('login.twoFactor.backToLogin')}
                         </button>
 
                         {/* Linki pomocnicze */}
                         <div style={{ marginTop: '24px', textAlign: 'center' }}>
                             {selectedMethod === 'WEBAUTHN' && hasTotp && (
                                 <p style={{ color: '#64748b', fontSize: '13px' }}>
-                                    Problem z kluczem?{' '}
+                                    {t('login.twoFactor.keyProblem')}{' '}
                                     <button 
                                         type="button"
                                         onClick={() => setSelectedMethod('TOTP')}
                                         style={{ color: '#0ea5e9', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
                                     >
-                                        Użyj kodu z aplikacji
+                                        {t('login.twoFactor.useAppCode')}
                                     </button>
                                 </p>
                             )}
                             {selectedMethod !== 'BACKUP_CODE' && (
                                 <p style={{ color: '#64748b', fontSize: '13px', marginTop: '8px' }}>
-                                    Brak dostępu do urządzenia?{' '}
+                                    {t('login.twoFactor.noDeviceAccess')}{' '}
                                     <button 
                                         type="button"
                                         onClick={() => setSelectedMethod('BACKUP_CODE')}
                                         style={{ color: '#f59e0b', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
                                     >
-                                        Użyj kodu zapasowego
+                                        {t('login.twoFactor.useBackupCode')}
                                     </button>
                                 </p>
                             )}
@@ -554,9 +540,9 @@ function Login() {
                             }}>
                                 <Shield style={{ width: '32px', height: '32px', color: '#f59e0b' }} />
                             </div>
-                            <h1 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '8px' }}>Wymagana konfiguracja 2FA</h1>
+                            <h1 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '8px' }}>{t('login.setup2FA.title')}</h1>
                             <p style={{ color: '#94a3b8', fontSize: '14px', lineHeight: '1.6' }}>
-                                Administrator wymaga włączenia dwuskładnikowego uwierzytelniania na Twoim koncie.
+                                {t('login.setup2FA.description')}
                             </p>
                         </div>
 
@@ -568,7 +554,7 @@ function Login() {
                             marginBottom: '24px'
                         }}>
                             <p style={{ color: '#fbbf24', fontSize: '14px', margin: 0, textAlign: 'center' }}>
-                                ⚠️ Nie możesz korzystać z serwisu bez włączenia 2FA
+                                ⚠️ {t('login.setup2FA.warning')}
                             </p>
                         </div>
 
@@ -593,7 +579,7 @@ function Login() {
                             }}
                         >
                             <Shield style={{ width: '20px', height: '20px' }} />
-                            Skonfiguruj 2FA teraz
+                            {t('login.setup2FA.configureNow')}
                         </button>
 
                         <button 
@@ -610,7 +596,7 @@ function Login() {
                                 fontSize: '14px'
                             }}
                         >
-                            Anuluj i wyloguj
+                            {t('login.setup2FA.cancelAndLogout')}
                         </button>
                     </div>
                 </div>
@@ -634,11 +620,11 @@ function Login() {
 
                 {/* Form Card */}
                 <div style={{ backgroundColor: 'rgba(30, 41, 59, 0.5)', border: '1px solid #334155', borderRadius: '16px', padding: '32px 24px' }}>
-                    <h1 style={{ fontSize: '24px', fontWeight: 'bold', textAlign: 'center', marginBottom: '24px' }}>Zaloguj się</h1>
+                    <h1 style={{ fontSize: '24px', fontWeight: 'bold', textAlign: 'center', marginBottom: '24px' }}>{t('login.title')}</h1>
                     
                     <form onSubmit={handleSubmit}>
                         <div style={{ marginBottom: '16px' }}>
-                            <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#cbd5e1', marginBottom: '8px' }}>Email</label>
+                            <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#cbd5e1', marginBottom: '8px' }}>{t('login.email')}</label>
                             <div style={{ position: 'relative' }}>
                                 <Mail style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', width: '20px', height: '20px', color: '#64748b' }} />
                                 <input 
@@ -647,7 +633,7 @@ function Login() {
                                     value={formData.email} 
                                     onChange={handleChange} 
                                     style={inputStyle} 
-                                    placeholder="twoj@email.pl" 
+                                    placeholder={t('login.emailPlaceholder')}
                                     autoComplete="email"
                                     required 
                                 />
@@ -655,7 +641,7 @@ function Login() {
                         </div>
 
                         <div style={{ marginBottom: '24px' }}>
-                            <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#cbd5e1', marginBottom: '8px' }}>Hasło</label>
+                            <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#cbd5e1', marginBottom: '8px' }}>{t('login.password')}</label>
                             <div style={{ position: 'relative' }}>
                                 <Lock style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', width: '20px', height: '20px', color: '#64748b' }} />
                                 <input 
@@ -688,12 +674,12 @@ function Login() {
                             gap: '8px',
                             minHeight: '48px'
                         }}>
-                            {loading ? (<><Loader2 className="animate-spin" style={{ width: '20px', height: '20px' }} /> Logowanie...</>) : 'Zaloguj się'}
+                            {loading ? (<><Loader2 className="animate-spin" style={{ width: '20px', height: '20px' }} /> {t('login.loggingIn')}</>) : t('login.submit')}
                         </button>
                     </form>
 
                     <p style={{ textAlign: 'center', color: '#94a3b8', marginTop: '24px' }}>
-                        Nie masz konta? <Link to="/register" style={{ color: '#0ea5e9', textDecoration: 'none' }}>Zarejestruj się</Link>
+                        {t('login.noAccount')} <Link to="/register" style={{ color: '#0ea5e9', textDecoration: 'none' }}>{t('login.register')}</Link>
                     </p>
                 </div>
             </div>

@@ -4,6 +4,7 @@ import { useParams } from 'react-router-dom';
 import { Link2, Clock, CheckCircle, ExternalLink, Loader2, AlertCircle, Shield, MousePointer, ShieldOff, RefreshCw } from 'lucide-react';
 import HCaptcha from '@hcaptcha/react-hcaptcha';
 import AdBanner from '../components/AdBanner';
+import { useTranslation } from '../i18n';
 
 // API URL - łatwa zmiana w przyszłości
 const API_URL = 'https://angoralinks-backend-production.up.railway.app';
@@ -28,20 +29,21 @@ const useWindowSize = () => {
     };
 };
 
-// Konfiguracja kroków: URL = direct link, BANNER = reklama banerowa
-const STEPS_CONFIG = [
-    { type: 'URL', label: 'Otwórz reklamę' },
-    { type: 'BANNER', label: 'Kliknij w reklamę' },
-    { type: 'URL', label: 'Otwórz reklamę' },
-    { type: 'URL', label: 'Otwórz reklamę' },
-    { type: 'BANNER', label: 'Oglądaj reklamę' }
-];
-
-const TOTAL_STEPS = STEPS_CONFIG.length;
+const TOTAL_STEPS = 5;
 
 function Unlock() {
     const { shortCode } = useParams();
     const { isMobile } = useWindowSize();
+    const { t } = useTranslation();
+    
+    // Konfiguracja kroków z tłumaczeniami
+    const STEPS_CONFIG = [
+        { type: 'URL', label: t('unlock.steps.openAd') },
+        { type: 'BANNER', label: t('unlock.steps.clickAd') },
+        { type: 'URL', label: t('unlock.steps.openAd') },
+        { type: 'URL', label: t('unlock.steps.openAd') },
+        { type: 'BANNER', label: t('unlock.steps.watchAd') }
+    ];
     
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -125,7 +127,7 @@ function Unlock() {
             try {
                 const response = await fetch(`${API_URL}/l/info/${shortCode}`);
                 const data = await response.json();
-                if (!response.ok) throw new Error(data.message || 'Link nie istnieje');
+                if (!response.ok) throw new Error(data.message || t('unlock.errors.linkNotExists'));
                 setLinkData(data.link);
             } catch (err) {
                 setError(err.message);
@@ -134,7 +136,7 @@ function Unlock() {
             }
         };
         fetchLink();
-    }, [shortCode]);
+    }, [shortCode, t]);
 
     // Timer - tylko na ostatnim kroku (BANNER)
     useEffect(() => {
@@ -189,7 +191,7 @@ function Unlock() {
         if (!timerDone) return;
         
         if (showCaptcha && !captchaToken) {
-            setError('Najpierw rozwiąż captcha');
+            setError(t('unlock.errors.solveCaptchaFirst'));
             return;
         }
 
@@ -211,7 +213,7 @@ function Unlock() {
             const data = await response.json();
             
             if (!response.ok) {
-                throw new Error(data.message || 'Błąd odblokowania');
+                throw new Error(data.message || t('unlock.errors.unlockFailed'));
             }
             
             setTargetUrl(data.redirectUrl);
@@ -231,14 +233,14 @@ function Unlock() {
     const getStepStatusText = () => {
         if (adClicked) {
             if (isLastStep && !timerDone) {
-                return `Oglądaj - ${timer}s`;
+                return `${t('unlock.status.watching')} - ${timer}s`;
             }
             if (isLastStep && timerDone) {
-                return '✓ Rozwiąż captcha';
+                return `✓ ${t('unlock.status.solveCaptcha')}`;
             }
-            return '✓ Kliknij przycisk aby przejść dalej';
+            return `✓ ${t('unlock.status.clickToContinue')}`;
         }
-        return `Krok ${step}/${TOTAL_STEPS} - ${currentStepConfig.label}`;
+        return `${t('unlock.step')} ${step}/${TOTAL_STEPS} - ${currentStepConfig.label}`;
     };
 
     // Styles
@@ -370,7 +372,7 @@ function Unlock() {
         return (
             <div style={styles.centerScreen}>
                 <Loader2 className="animate-spin" style={{ width: '48px', height: '48px', color: '#0ea5e9' }} />
-                <p style={{ color: '#94a3b8', fontSize: '16px' }}>Sprawdzanie połączenia...</p>
+                <p style={{ color: '#94a3b8', fontSize: '16px' }}>{t('unlock.checkingConnection')}</p>
             </div>
         );
     }
@@ -402,11 +404,11 @@ function Unlock() {
                     </div>
 
                     <h1 style={{ fontSize: isMobile ? '24px' : '28px', fontWeight: 'bold', color: '#f8fafc', marginBottom: '16px' }}>
-                        AdBlock wykryty
+                        {t('unlock.adBlock.title')}
                     </h1>
 
                     <p style={{ color: '#94a3b8', fontSize: isMobile ? '14px' : '16px', lineHeight: '1.6', marginBottom: '24px' }}>
-                        Aby uzyskać dostęp do tego linku, wyłącz rozszerzenie blokujące reklamy i odśwież stronę.
+                        {t('unlock.adBlock.description')}
                     </p>
 
                     <div style={{
@@ -417,12 +419,12 @@ function Unlock() {
                         textAlign: 'left'
                     }}>
                         <h3 style={{ color: '#f8fafc', fontSize: isMobile ? '14px' : '16px', fontWeight: 'bold', marginBottom: '12px' }}>
-                            Jak wyłączyć AdBlock:
+                            {t('unlock.adBlock.howToDisable')}
                         </h3>
                         <ol style={{ color: '#94a3b8', fontSize: isMobile ? '13px' : '14px', lineHeight: '2', paddingLeft: '20px', margin: 0 }}>
-                            <li>Kliknij ikonę AdBlocka w przeglądarce</li>
-                            <li>Wybierz "Wyłącz na tej stronie"</li>
-                            <li>Kliknij przycisk poniżej</li>
+                            <li>{t('unlock.adBlock.step1')}</li>
+                            <li>{t('unlock.adBlock.step2')}</li>
+                            <li>{t('unlock.adBlock.step3')}</li>
                         </ol>
                     </div>
 
@@ -446,11 +448,11 @@ function Unlock() {
                         }}
                     >
                         <RefreshCw style={{ width: '20px', height: '20px' }} />
-                        Sprawdź ponownie
+                        {t('unlock.adBlock.checkAgain')}
                     </button>
 
                     <p style={{ color: '#64748b', fontSize: '12px', marginTop: '24px' }}>
-                        Reklamy pozwalają nam utrzymać serwis ❤️
+                        {t('unlock.adsHelpCreators')} ❤️
                     </p>
                 </div>
             </div>
@@ -470,7 +472,7 @@ function Unlock() {
             <div style={styles.centerScreen}>
                 <div style={{ textAlign: 'center' }}>
                     <AlertCircle style={{ width: '64px', height: '64px', color: '#ef4444', margin: '0 auto 16px' }} />
-                    <h1 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '8px' }}>Błąd</h1>
+                    <h1 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '8px' }}>{t('common.error')}</h1>
                     <p style={{ color: '#94a3b8' }}>{error}</p>
                 </div>
             </div>
@@ -482,10 +484,10 @@ function Unlock() {
             <div style={styles.centerScreen}>
                 <div style={{ textAlign: 'center' }}>
                     <CheckCircle style={{ width: '64px', height: '64px', color: '#22c55e', margin: '0 auto 16px' }} />
-                    <h1 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '8px' }}>Link odblokowany!</h1>
-                    <p style={{ color: '#94a3b8', marginBottom: '16px' }}>Przekierowywanie...</p>
+                    <h1 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '8px' }}>{t('unlock.success.title')}</h1>
+                    <p style={{ color: '#94a3b8', marginBottom: '16px' }}>{t('unlock.success.redirecting')}</p>
                     <a href={targetUrl} style={{ color: '#0ea5e9', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                        Kliknij tutaj jeśli nie zostałeś przekierowany
+                        {t('unlock.success.clickIfNotRedirected')}
                         <ExternalLink style={{ width: '16px', height: '16px' }} />
                     </a>
                 </div>
@@ -501,25 +503,25 @@ function Unlock() {
                     <>
                         <ExternalLink style={{ width: isMobile ? '48px' : '64px', height: isMobile ? '48px' : '64px', color: '#eab308', margin: '0 auto 16px' }} />
                         <p style={{ fontSize: isMobile ? '16px' : '18px', fontWeight: 'bold', color: '#eab308', marginBottom: '16px' }}>
-                            Kliknij przycisk poniżej
+                            {t('unlock.clickButtonBelow')}
                         </p>
                         <button onClick={handleDirectLinkClick} style={styles.directLinkButton}>
-                            🔗 Otwórz reklamę
+                            🔗 {t('unlock.openAd')}
                         </button>
                     </>
                 ) : (
                     <>
                         <CheckCircle style={{ width: '64px', height: '64px', color: '#22c55e', margin: '0 auto 16px' }} />
-                        <p style={{ fontSize: '18px', fontWeight: 'bold', color: '#22c55e' }}>Reklama otwarta!</p>
+                        <p style={{ fontSize: '18px', fontWeight: 'bold', color: '#22c55e' }}>{t('unlock.adOpened')}</p>
                     </>
                 )}
             </div>
             <div style={{ textAlign: 'center' }}>
                 <button onClick={handleNextStep} disabled={!adClicked} style={styles.button(adClicked)}>
                     {adClicked ? (
-                        <>Kontynuuj <CheckCircle style={{ width: '20px', height: '20px' }} /></>
+                        <>{t('unlock.continue')} <CheckCircle style={{ width: '20px', height: '20px' }} /></>
                     ) : (
-                        <><MousePointer style={{ width: '20px', height: '20px' }} /> Najpierw otwórz reklamę</>
+                        <><MousePointer style={{ width: '20px', height: '20px' }} /> {t('unlock.openAdFirst')}</>
                     )}
                 </button>
             </div>
@@ -534,7 +536,7 @@ function Unlock() {
                     <div style={{ textAlign: 'center', marginBottom: '16px' }}>
                         <p style={{ fontWeight: 'bold', color: '#eab308', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: isMobile ? '14px' : '16px' }}>
                             <MousePointer style={{ width: '20px', height: '20px' }} />
-                            Kliknij w reklamę
+                            {t('unlock.clickOnAd')}
                         </p>
                     </div>
                 )}
@@ -542,7 +544,7 @@ function Unlock() {
                     <div style={{ textAlign: 'center', marginBottom: '16px' }}>
                         <p style={{ fontWeight: 'bold', color: '#22c55e', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                             <CheckCircle style={{ width: '20px', height: '20px' }} />
-                            Reklama kliknięta!
+                            {t('unlock.adClicked')}
                         </p>
                     </div>
                 )}
@@ -551,9 +553,9 @@ function Unlock() {
             <div style={{ textAlign: 'center' }}>
                 <button onClick={handleNextStep} disabled={!adClicked} style={styles.button(adClicked)}>
                     {adClicked ? (
-                        <>Kontynuuj <CheckCircle style={{ width: '20px', height: '20px' }} /></>
+                        <>{t('unlock.continue')} <CheckCircle style={{ width: '20px', height: '20px' }} /></>
                     ) : (
-                        <><MousePointer style={{ width: '20px', height: '20px' }} /> Najpierw kliknij reklamę</>
+                        <><MousePointer style={{ width: '20px', height: '20px' }} /> {t('unlock.clickAdFirst')}</>
                     )}
                 </button>
             </div>
@@ -568,7 +570,7 @@ function Unlock() {
                     <div style={{ textAlign: 'center', marginBottom: '16px' }}>
                         <p style={{ fontWeight: 'bold', color: '#eab308', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: isMobile ? '14px' : '16px' }}>
                             <MousePointer style={{ width: '20px', height: '20px' }} />
-                            Kliknij reklamę aby rozpocząć timer
+                            {t('unlock.clickAdToStartTimer')}
                         </p>
                     </div>
                 )}
@@ -576,7 +578,7 @@ function Unlock() {
                     <div style={{ textAlign: 'center', marginBottom: '16px' }}>
                         <p style={{ fontWeight: 'bold', color: '#0ea5e9', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                             <Clock style={{ width: '20px', height: '20px' }} />
-                            Oglądaj reklamę...
+                            {t('unlock.watchingAd')}
                         </p>
                     </div>
                 )}
@@ -584,7 +586,7 @@ function Unlock() {
                     <div style={{ textAlign: 'center', marginBottom: '16px' }}>
                         <p style={{ fontWeight: 'bold', color: '#22c55e', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                             <CheckCircle style={{ width: '20px', height: '20px' }} />
-                            Gotowe! Rozwiąż captcha.
+                            {t('unlock.readySolveCaptcha')}
                         </p>
                     </div>
                 )}
@@ -596,13 +598,13 @@ function Unlock() {
                 {!adClicked ? (
                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: '12px', backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '12px', padding: isMobile ? '12px 20px' : '16px 32px', width: isMobile ? '100%' : 'auto', justifyContent: 'center' }}>
                         <MousePointer style={{ width: '20px', height: '20px', color: '#eab308' }} />
-                        <span style={{ fontSize: isMobile ? '14px' : '20px', fontWeight: 'bold', color: '#94a3b8' }}>Kliknij reklamę</span>
+                        <span style={{ fontSize: isMobile ? '14px' : '20px', fontWeight: 'bold', color: '#94a3b8' }}>{t('unlock.clickAd')}</span>
                     </div>
                 ) : !timerDone ? (
                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: '12px', backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '12px', padding: isMobile ? '12px 20px' : '16px 32px', width: isMobile ? '100%' : 'auto', justifyContent: 'center' }}>
                         <Clock style={{ width: '24px', height: '24px', color: '#0ea5e9' }} />
                         <span style={{ fontSize: isMobile ? '16px' : '20px', fontWeight: 'bold' }}>
-                            Poczekaj <span style={{ color: '#0ea5e9', fontSize: isMobile ? '24px' : '28px' }}>{timer}</span>s
+                            {t('unlock.wait')} <span style={{ color: '#0ea5e9', fontSize: isMobile ? '24px' : '28px' }}>{timer}</span>s
                         </span>
                     </div>
                 ) : (
@@ -624,11 +626,11 @@ function Unlock() {
                             style={styles.unlockButton(!unlocking && (!showCaptcha || captchaToken))}
                         >
                             {unlocking ? (
-                                <><Loader2 className="animate-spin" style={{ width: '24px', height: '24px' }} /> Odblokowywanie...</>
+                                <><Loader2 className="animate-spin" style={{ width: '24px', height: '24px' }} /> {t('unlock.unlocking')}</>
                             ) : (showCaptcha && !captchaToken) ? (
-                                <><Shield style={{ width: '24px', height: '24px' }} /> Rozwiąż captcha</>
+                                <><Shield style={{ width: '24px', height: '24px' }} /> {t('unlock.solveCaptcha')}</>
                             ) : (
-                                <><CheckCircle style={{ width: '24px', height: '24px' }} /> Odblokuj link</>
+                                <><CheckCircle style={{ width: '24px', height: '24px' }} /> {t('unlock.unlockLink')}</>
                             )}
                         </button>
                     </div>
@@ -661,7 +663,7 @@ function Unlock() {
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: isMobile ? '12px' : '14px', color: '#94a3b8' }}>
                         <Shield style={{ width: '16px', height: '16px' }} />
-                        <span style={{ display: isMobile ? 'none' : 'inline' }}>Bezpieczny link</span>
+                        <span style={{ display: isMobile ? 'none' : 'inline' }}>{t('unlock.secureLink')}</span>
                     </div>
                 </div>
             </header>
@@ -685,7 +687,7 @@ function Unlock() {
                 {/* Link info */}
                 <div style={styles.infoCard}>
                     <h1 style={{ fontSize: isMobile ? '20px' : '24px', fontWeight: 'bold', marginBottom: '8px' }}>
-                        {linkData?.title || 'Przejdź do strony'}
+                        {linkData?.title || t('unlock.goToPage')}
                     </h1>
                     <p style={{ color: '#94a3b8', fontSize: isMobile ? '14px' : '16px' }}>
                         {getStepStatusText()}
@@ -703,7 +705,7 @@ function Unlock() {
                 {renderCurrentStep()}
 
                 <p style={{ textAlign: 'center', fontSize: isMobile ? '12px' : '14px', color: '#64748b', marginTop: '24px' }}>
-                    Reklamy pomagają twórcom zarabiać. Dziękujemy! ❤️
+                    {t('unlock.adsHelpCreators')} ❤️
                 </p>
             </main>
         </div>

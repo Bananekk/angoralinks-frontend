@@ -23,6 +23,7 @@ import {
     updateWebAuthnCredentialName,
     isWebAuthnSupported
 } from '../api/twoFactor';
+import { useTranslation } from '../i18n';
 
 // ============================================
 // HELPERY WebAuthn
@@ -79,6 +80,7 @@ function Profile() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const { isMobile } = useWindowSize();
+    const { t } = useTranslation();
     
     const [loading, setLoading] = useState(true);
     const [profile, setProfile] = useState(null);
@@ -140,14 +142,11 @@ function Profile() {
     // EFFECTS
     // ============================================
 
-    // Sprawdź WebAuthn support
     useEffect(() => {
         const supported = !!(window.PublicKeyCredential && typeof window.PublicKeyCredential === 'function');
-        console.log('🔐 WebAuthn supported:', supported);
         setWebAuthnSupported(supported);
     }, []);
 
-    // Sprawdź czy przekierowano z wymuszonego setupu
     useEffect(() => {
         if (searchParams.get('setup2fa') === 'true') {
             setActiveTab('security');
@@ -176,7 +175,7 @@ function Profile() {
             setProfile(response.data.user);
             setEmail(response.data.user.email);
         } catch (error) {
-            toast.error('Błąd pobierania profilu');
+            toast.error(t('profile.errors.fetchProfile'));
             navigate('/dashboard');
         } finally {
             setLoading(false);
@@ -217,7 +216,7 @@ function Profile() {
             setTotpData(response.data);
             setShowTotpSetup(true);
         } catch (error) {
-            toast.error(error.response?.data?.error || 'Błąd inicjalizacji TOTP');
+            toast.error(error.response?.data?.error || t('profile.errors.totpInit'));
         }
     };
 
@@ -225,14 +224,14 @@ function Profile() {
         e.preventDefault();
         
         if (!totpCode || totpCode.length !== 6) {
-            toast.error('Wprowadź 6-cyfrowy kod');
+            toast.error(t('profile.errors.enter6DigitCode'));
             return;
         }
         
         setEnablingTotp(true);
         try {
             const response = await verifyAndEnableTotp(totpData.secret, totpCode);
-            toast.success('TOTP zostało włączone!');
+            toast.success(t('profile.messages.totpEnabled'));
             
             if (response.data?.backupCodes) {
                 setBackupCodes(response.data.backupCodes);
@@ -244,7 +243,7 @@ function Profile() {
             setTotpCode('');
             fetchTwoFactorStatus();
         } catch (error) {
-            toast.error(error.response?.data?.error || 'Nieprawidłowy kod');
+            toast.error(error.response?.data?.error || t('profile.errors.invalidCode'));
         } finally {
             setEnablingTotp(false);
         }
@@ -252,20 +251,20 @@ function Profile() {
 
     const handleDisableTotp = async () => {
         if (!disableCode && !disablePassword) {
-            toast.error('Wprowadź kod 2FA lub hasło');
+            toast.error(t('profile.errors.enter2FAOrPassword'));
             return;
         }
         
         setDisabling2FA(true);
         try {
             await disableTotp(disableCode || null, disablePassword || null);
-            toast.success('TOTP zostało wyłączone');
+            toast.success(t('profile.messages.totpDisabled'));
             setShowDisable2FA(false);
             setDisableCode('');
             setDisablePassword('');
             fetchTwoFactorStatus();
         } catch (error) {
-            toast.error(error.response?.data?.error || 'Błąd wyłączania TOTP');
+            toast.error(error.response?.data?.error || t('profile.errors.disableTotp'));
         } finally {
             setDisabling2FA(false);
         }
@@ -277,18 +276,16 @@ function Profile() {
 
     const handleRegisterWebAuthn = async () => {
         if (!webAuthnSupported) {
-            toast.error('Twoja przeglądarka nie obsługuje kluczy bezpieczeństwa');
+            toast.error(t('profile.errors.webAuthnNotSupported'));
             return;
         }
 
         setRegisteringWebAuthn(true);
         
         try {
-            // 1. Pobierz opcje rejestracji
             const optionsResponse = await getWebAuthnRegisterOptions();
             const options = optionsResponse.data;
 
-            // 2. Konwertuj dane z base64url
             const publicKeyOptions = {
                 ...options,
                 challenge: base64URLToBuffer(options.challenge),
@@ -302,7 +299,6 @@ function Profile() {
                 })) || []
             };
 
-            // 3. Wywołaj WebAuthn API
             let credential;
             try {
                 credential = await navigator.credentials.create({
@@ -310,13 +306,12 @@ function Profile() {
                 });
             } catch (credError) {
                 if (credError.name === 'NotAllowedError') {
-                    toast.error('Rejestracja została anulowana');
+                    toast.error(t('profile.errors.registrationCancelled'));
                     return;
                 }
                 throw credError;
             }
 
-            // 4. Przygotuj odpowiedź dla serwera
             const credentialResponse = {
                 id: credential.id,
                 rawId: bufferToBase64URL(credential.rawId),
@@ -328,15 +323,13 @@ function Profile() {
                 }
             };
 
-            // 5. Wyślij do serwera
             const verifyResponse = await verifyWebAuthnRegistration(
                 credentialResponse, 
                 webAuthnDeviceName || undefined
             );
             
-            toast.success('Klucz bezpieczeństwa został zarejestrowany!');
+            toast.success(t('profile.messages.keyRegistered'));
             
-            // Pokaż kody zapasowe jeśli to pierwsza metoda 2FA
             if (verifyResponse.data?.backupCodes) {
                 setBackupCodes(verifyResponse.data.backupCodes);
                 setShowBackupCodes(true);
@@ -351,13 +344,13 @@ function Profile() {
             console.error('WebAuthn registration error:', error);
             
             if (error.name === 'NotAllowedError') {
-                toast.error('Rejestracja została anulowana');
+                toast.error(t('profile.errors.registrationCancelled'));
             } else if (error.name === 'SecurityError') {
-                toast.error('Błąd bezpieczeństwa - sprawdź czy używasz HTTPS');
+                toast.error(t('profile.errors.securityError'));
             } else if (error.name === 'InvalidStateError') {
-                toast.error('Ten klucz jest już zarejestrowany');
+                toast.error(t('profile.errors.keyAlreadyRegistered'));
             } else {
-                toast.error(error.response?.data?.error || 'Błąd rejestracji klucza');
+                toast.error(error.response?.data?.error || t('profile.errors.keyRegistration'));
             }
         } finally {
             setRegisteringWebAuthn(false);
@@ -366,24 +359,24 @@ function Profile() {
 
     const handleEditCredentialName = async () => {
         if (!editCredentialName.trim()) {
-            toast.error('Nazwa nie może być pusta');
+            toast.error(t('profile.errors.nameEmpty'));
             return;
         }
 
         try {
             await updateWebAuthnCredentialName(editingCredential.id, editCredentialName.trim());
-            toast.success('Nazwa klucza została zmieniona');
+            toast.success(t('profile.messages.keyNameChanged'));
             setEditingCredential(null);
             setEditCredentialName('');
             fetchWebAuthnCredentials();
         } catch (error) {
-            toast.error(error.response?.data?.error || 'Błąd zmiany nazwy');
+            toast.error(error.response?.data?.error || t('profile.errors.nameChange'));
         }
     };
 
     const handleDeleteCredential = async () => {
         if (!deleteCredentialCode && !deleteCredentialPassword) {
-            toast.error('Wprowadź kod 2FA lub hasło');
+            toast.error(t('profile.errors.enter2FAOrPassword'));
             return;
         }
 
@@ -393,14 +386,14 @@ function Profile() {
                 deleteCredentialCode || null,
                 deleteCredentialPassword || null
             );
-            toast.success('Klucz został usunięty');
+            toast.success(t('profile.messages.keyDeleted'));
             setDeletingCredential(null);
             setDeleteCredentialCode('');
             setDeleteCredentialPassword('');
             fetchTwoFactorStatus();
             fetchWebAuthnCredentials();
         } catch (error) {
-            toast.error(error.response?.data?.error || 'Błąd usuwania klucza');
+            toast.error(error.response?.data?.error || t('profile.errors.keyDelete'));
         }
     };
 
@@ -410,7 +403,7 @@ function Profile() {
 
     const handleRegenerateBackupCodes = async () => {
         if (!verificationCode && !verificationPassword) {
-            toast.error('Wprowadź kod 2FA lub hasło');
+            toast.error(t('profile.errors.enter2FAOrPassword'));
             return;
         }
         
@@ -425,10 +418,10 @@ function Profile() {
             setShowRegenerateModal(false);
             setVerificationCode('');
             setVerificationPassword('');
-            toast.success('Wygenerowano nowe kody zapasowe');
+            toast.success(t('profile.messages.backupCodesGenerated'));
             fetchTwoFactorStatus();
         } catch (error) {
-            toast.error(error.response?.data?.error || 'Błąd generowania kodów');
+            toast.error(error.response?.data?.error || t('profile.errors.generateCodes'));
         } finally {
             setRegeneratingCodes(false);
         }
@@ -437,12 +430,12 @@ function Profile() {
     const handleCopyBackupCodes = () => {
         const codesText = backupCodes.join('\n');
         navigator.clipboard.writeText(codesText);
-        toast.success('Kody skopiowane do schowka');
+        toast.success(t('profile.messages.codesCopied'));
     };
 
     const handleDownloadBackupCodes = () => {
         const codesText = backupCodes.map((code, i) => `${i + 1}. ${code}`).join('\n');
-        const content = `AngoraLinks - Kody zapasowe 2FA\n${'='.repeat(40)}\n\n${codesText}\n\n${'='.repeat(40)}\nKażdy kod może być użyty tylko raz.\nPrzechowuj w bezpiecznym miejscu!`;
+        const content = `AngoraLinks - ${t('profile.backupCodes.title')}\n${'='.repeat(40)}\n\n${codesText}\n\n${'='.repeat(40)}\n${t('profile.backupCodes.eachCodeOnce')}\n${t('profile.backupCodes.storeSecurely')}`;
         
         const blob = new Blob([content], { type: 'text/plain' });
         const url = URL.createObjectURL(blob);
@@ -451,7 +444,7 @@ function Profile() {
         a.download = 'angoralinks-backup-codes.txt';
         a.click();
         URL.revokeObjectURL(url);
-        toast.success('Plik pobrany');
+        toast.success(t('profile.messages.fileDownloaded'));
     };
 
     // ============================================
@@ -464,12 +457,12 @@ function Profile() {
         
         try {
             await api.put('/profile', { email });
-            toast.success('Email zaktualizowany');
+            toast.success(t('profile.messages.emailUpdated'));
             const user = JSON.parse(localStorage.getItem('user'));
             user.email = email;
             localStorage.setItem('user', JSON.stringify(user));
         } catch (error) {
-            toast.error(error.response?.data?.error || 'Błąd aktualizacji');
+            toast.error(error.response?.data?.error || t('profile.errors.updateEmail'));
         } finally {
             setSavingEmail(false);
         }
@@ -479,7 +472,7 @@ function Profile() {
         e.preventDefault();
         
         if (passwords.newPassword !== passwords.confirmPassword) {
-            toast.error('Nowe hasła nie są identyczne');
+            toast.error(t('profile.errors.passwordsNotMatch'));
             return;
         }
         
@@ -487,10 +480,10 @@ function Profile() {
         
         try {
             await api.put('/profile/password', passwords);
-            toast.success('Hasło zmienione');
+            toast.success(t('profile.messages.passwordChanged'));
             setPasswords({ currentPassword: '', newPassword: '', confirmPassword: '' });
         } catch (error) {
-            toast.error(error.response?.data?.error || 'Błąd zmiany hasła');
+            toast.error(error.response?.data?.error || t('profile.errors.changePassword'));
         } finally {
             setSavingPassword(false);
         }
@@ -500,7 +493,7 @@ function Profile() {
         if (e) e.preventDefault();
         
         if (!deletePassword) {
-            toast.error('Wpisz hasło aby potwierdzić');
+            toast.error(t('profile.errors.enterPasswordToConfirm'));
             return;
         }
         
@@ -508,12 +501,12 @@ function Profile() {
         
         try {
             await api.delete('/profile', { data: { password: deletePassword } });
-            toast.success('Konto usunięte');
+            toast.success(t('profile.messages.accountDeleted'));
             localStorage.removeItem('token');
             localStorage.removeItem('user');
             navigate('/');
         } catch (error) {
-            toast.error(error.response?.data?.error || 'Błąd usuwania konta');
+            toast.error(error.response?.data?.error || t('profile.errors.deleteAccount'));
         } finally {
             setDeleting(false);
         }
@@ -537,16 +530,16 @@ function Profile() {
     const getCredentialTypeName = (type) => {
         switch (type) {
             case 'singleDevice':
-                return 'Klucz sprzętowy';
+                return t('profile.webauthn.hardwareKey');
             case 'multiDevice':
-                return 'Passkey (synchronizowany)';
+                return t('profile.webauthn.passkey');
             default:
-                return 'Klucz bezpieczeństwa';
+                return t('profile.webauthn.securityKey');
         }
     };
 
     const formatDate = (dateString) => {
-        if (!dateString) return 'Nigdy';
+        if (!dateString) return t('profile.never');
         return new Date(dateString).toLocaleDateString('pl-PL', {
             day: '2-digit',
             month: '2-digit',
@@ -561,10 +554,10 @@ function Profile() {
     // ============================================
 
     const tabs = [
-        { id: 'profile', label: 'Profil', icon: User },
-        { id: 'security', label: 'Bezpieczeństwo', icon: Shield },
-        { id: 'password', label: 'Hasło', icon: Lock },
-        { id: 'delete', label: 'Usuń', icon: Trash2 }
+        { id: 'profile', label: t('profile.tabs.profile'), icon: User },
+        { id: 'security', label: t('profile.tabs.security'), icon: Shield },
+        { id: 'password', label: t('profile.tabs.password'), icon: Lock },
+        { id: 'delete', label: t('profile.tabs.delete'), icon: Trash2 }
     ];
 
     const inputStyle = {
@@ -650,7 +643,7 @@ function Profile() {
                     </Link>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <User style={{ width: '24px', height: '24px', color: '#0ea5e9' }} />
-                        <span style={{ fontWeight: 'bold', fontSize: isMobile ? '18px' : '20px' }}>Profil</span>
+                        <span style={{ fontWeight: 'bold', fontSize: isMobile ? '18px' : '20px' }}>{t('profile.title')}</span>
                     </div>
                 </div>
             </header>
@@ -665,14 +658,14 @@ function Profile() {
                                 <p style={{ fontSize: isMobile ? '20px' : '24px', fontWeight: 'bold', color: '#22c55e', margin: 0 }}>
                                     ${profile?.balance?.toFixed(4)}
                                 </p>
-                                <p style={{ color: '#94a3b8', fontSize: '14px', margin: 0 }}>Saldo</p>
+                                <p style={{ color: '#94a3b8', fontSize: '14px', margin: 0 }}>{t('profile.stats.balance')}</p>
                             </div>
                         </div>
                         <div style={{ display: 'flex', alignItems: isMobile ? 'center' : 'flex-start', flexDirection: isMobile ? 'row' : 'column', gap: isMobile ? '12px' : '8px', justifyContent: isMobile ? 'flex-start' : 'center' }}>
                             <Link2 style={{ width: '32px', height: '32px', color: '#0ea5e9', flexShrink: 0 }} />
                             <div style={{ textAlign: isMobile ? 'left' : 'center' }}>
                                 <p style={{ fontSize: isMobile ? '20px' : '24px', fontWeight: 'bold', margin: 0 }}>{profile?.linksCount}</p>
-                                <p style={{ color: '#94a3b8', fontSize: '14px', margin: 0 }}>Linki</p>
+                                <p style={{ color: '#94a3b8', fontSize: '14px', margin: 0 }}>{t('profile.stats.links')}</p>
                             </div>
                         </div>
                         <div style={{ display: 'flex', alignItems: isMobile ? 'center' : 'flex-start', flexDirection: isMobile ? 'row' : 'column', gap: isMobile ? '12px' : '8px', justifyContent: isMobile ? 'flex-start' : 'center' }}>
@@ -681,7 +674,7 @@ function Profile() {
                                 <p style={{ fontSize: isMobile ? '20px' : '24px', fontWeight: 'bold', margin: 0 }}>
                                     {new Date(profile?.createdAt).toLocaleDateString('pl-PL')}
                                 </p>
-                                <p style={{ color: '#94a3b8', fontSize: '14px', margin: 0 }}>Dołączył</p>
+                                <p style={{ color: '#94a3b8', fontSize: '14px', margin: 0 }}>{t('profile.stats.joined')}</p>
                             </div>
                         </div>
                     </div>
@@ -714,18 +707,16 @@ function Profile() {
                     ))}
                 </div>
 
-                {/* ============================================ */}
                 {/* Tab: Profil */}
-                {/* ============================================ */}
                 {activeTab === 'profile' && (
                     <div style={cardStyle}>
                         <h2 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <Mail style={{ width: '20px', height: '20px', color: '#0ea5e9' }} />
-                            Zmień email
+                            {t('profile.changeEmail')}
                         </h2>
                         <form onSubmit={handleUpdateEmail}>
                             <div style={{ marginBottom: '16px' }}>
-                                <label style={{ display: 'block', marginBottom: '8px', color: '#94a3b8', fontSize: '14px' }}>Adres email</label>
+                                <label style={{ display: 'block', marginBottom: '8px', color: '#94a3b8', fontSize: '14px' }}>{t('profile.emailAddress')}</label>
                                 <input 
                                     type="email" 
                                     value={email} 
@@ -737,15 +728,13 @@ function Profile() {
                             </div>
                             <button type="submit" disabled={savingEmail} style={buttonStyle(savingEmail)}>
                                 {savingEmail ? <Loader2 className="animate-spin" style={{ width: '20px', height: '20px' }} /> : <CheckCircle style={{ width: '20px', height: '20px' }} />}
-                                Zapisz zmiany
+                                {t('common.save')}
                             </button>
                         </form>
                     </div>
                 )}
 
-                {/* ============================================ */}
                 {/* Tab: Bezpieczeństwo (2FA) */}
-                {/* ============================================ */}
                 {activeTab === 'security' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                         
@@ -753,7 +742,7 @@ function Profile() {
                         <div style={cardStyle}>
                             <h2 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <Shield style={{ width: '20px', height: '20px', color: '#0ea5e9' }} />
-                                Dwuskładnikowe uwierzytelnianie (2FA)
+                                {t('profile.twoFactor.title')}
                             </h2>
                             
                             {loading2FA ? (
@@ -762,7 +751,6 @@ function Profile() {
                                 </div>
                             ) : (
                                 <>
-                                    {/* Status badge */}
                                     <div style={{ 
                                         display: 'flex', 
                                         alignItems: 'center', 
@@ -777,13 +765,13 @@ function Profile() {
                                             <>
                                                 <CheckCircle style={{ width: '24px', height: '24px', color: '#22c55e' }} />
                                                 <div>
-                                                    <p style={{ fontWeight: 'bold', color: '#22c55e', margin: 0 }}>2FA jest włączone</p>
+                                                    <p style={{ fontWeight: 'bold', color: '#22c55e', margin: 0 }}>{t('profile.twoFactor.enabled')}</p>
                                                     <p style={{ color: '#86efac', fontSize: '14px', margin: 0 }}>
-                                                        Metody: {twoFactorStatus?.methods?.map(m => {
-                                                            if (m === 'TOTP') return 'Aplikacja';
-                                                            if (m === 'WEBAUTHN') return 'Klucz';
+                                                        {t('profile.twoFactor.methods')}: {twoFactorStatus?.methods?.map(m => {
+                                                            if (m === 'TOTP') return t('profile.twoFactor.app');
+                                                            if (m === 'WEBAUTHN') return t('profile.twoFactor.key');
                                                             return m;
-                                                        }).join(', ') || 'Brak'}
+                                                        }).join(', ') || t('profile.twoFactor.none')}
                                                     </p>
                                                 </div>
                                             </>
@@ -791,16 +779,15 @@ function Profile() {
                                             <>
                                                 <AlertCircle style={{ width: '24px', height: '24px', color: '#ef4444' }} />
                                                 <div>
-                                                    <p style={{ fontWeight: 'bold', color: '#ef4444', margin: 0 }}>2FA jest wyłączone</p>
+                                                    <p style={{ fontWeight: 'bold', color: '#ef4444', margin: 0 }}>{t('profile.twoFactor.disabled')}</p>
                                                     <p style={{ color: '#fca5a5', fontSize: '14px', margin: 0 }}>
-                                                        Twoje konto nie jest w pełni zabezpieczone
+                                                        {t('profile.twoFactor.notSecured')}
                                                     </p>
                                                 </div>
                                             </>
                                         )}
                                     </div>
 
-                                    {/* Wymuszone 2FA info */}
                                     {twoFactorStatus?.required && (
                                         <div style={{ 
                                             backgroundColor: 'rgba(245, 158, 11, 0.1)', 
@@ -810,7 +797,7 @@ function Profile() {
                                             marginBottom: '16px'
                                         }}>
                                             <p style={{ color: '#fbbf24', fontSize: '14px', margin: 0 }}>
-                                                ⚠️ 2FA jest wymagane przez administratora i nie może być wyłączone
+                                                ⚠️ {t('profile.twoFactor.requiredByAdmin')}
                                             </p>
                                         </div>
                                     )}
@@ -822,11 +809,11 @@ function Profile() {
                         <div style={cardStyle}>
                             <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <Smartphone style={{ width: '18px', height: '18px', color: '#a855f7' }} />
-                                Aplikacja Authenticator
+                                {t('profile.totp.title')}
                             </h3>
                             
                             <p style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '16px' }}>
-                                Użyj Google Authenticator, Authy lub Microsoft Authenticator
+                                {t('profile.totp.description')}
                             </p>
 
                             {!twoFactorStatus?.totpEnabled ? (
@@ -835,13 +822,13 @@ function Profile() {
                                     style={buttonStyle(false)}
                                 >
                                     <Plus style={{ width: '20px', height: '20px' }} />
-                                    Skonfiguruj TOTP
+                                    {t('profile.totp.configure')}
                                 </button>
                             ) : (
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                         <CheckCircle style={{ width: '20px', height: '20px', color: '#22c55e' }} />
-                                        <span style={{ color: '#22c55e', fontWeight: '500' }}>Skonfigurowano</span>
+                                        <span style={{ color: '#22c55e', fontWeight: '500' }}>{t('profile.totp.configured')}</span>
                                     </div>
                                     {!twoFactorStatus?.required && (
                                         <button 
@@ -856,7 +843,7 @@ function Profile() {
                                                 fontSize: '14px'
                                             }}
                                         >
-                                            Wyłącz
+                                            {t('profile.totp.disable')}
                                         </button>
                                     )}
                                 </div>
@@ -867,17 +854,16 @@ function Profile() {
                         <div style={cardStyle}>
                             <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <Fingerprint style={{ width: '18px', height: '18px', color: '#22c55e' }} />
-                                Klucze bezpieczeństwa / Biometria
+                                {t('profile.webauthn.title')}
                             </h3>
                             
                             <p style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '16px' }}>
                                 {webAuthnSupported 
-                                    ? 'YubiKey, Touch ID, Face ID, Windows Hello'
-                                    : '⚠️ Twoja przeglądarka nie obsługuje kluczy bezpieczeństwa'
+                                    ? t('profile.webauthn.description')
+                                    : t('profile.webauthn.notSupported')
                                 }
                             </p>
 
-                            {/* Lista zarejestrowanych kluczy */}
                             {loadingCredentials ? (
                                 <div style={{ display: 'flex', justifyContent: 'center', padding: '24px' }}>
                                     <Loader2 className="animate-spin" style={{ width: '24px', height: '24px', color: '#0ea5e9' }} />
@@ -908,14 +894,14 @@ function Profile() {
                                                         overflow: 'hidden',
                                                         textOverflow: 'ellipsis'
                                                     }}>
-                                                        {cred.deviceName || 'Klucz bezpieczeństwa'}
+                                                        {cred.deviceName || t('profile.webauthn.securityKey')}
                                                     </p>
                                                     <p style={{ color: '#64748b', fontSize: '12px', margin: 0 }}>
                                                         {getCredentialTypeName(cred.type)}
-                                                        {cred.backedUp && ' • Zsynchronizowany'}
+                                                        {cred.backedUp && ` • ${t('profile.webauthn.synced')}`}
                                                     </p>
                                                     <p style={{ color: '#64748b', fontSize: '12px', margin: 0 }}>
-                                                        Ostatnio: {formatDate(cred.lastUsedAt)}
+                                                        {t('profile.webauthn.lastUsed')}: {formatDate(cred.lastUsedAt)}
                                                     </p>
                                                 </div>
                                             </div>
@@ -934,7 +920,7 @@ function Profile() {
                                                         color: '#94a3b8',
                                                         cursor: 'pointer'
                                                     }}
-                                                    title="Zmień nazwę"
+                                                    title={t('profile.webauthn.rename')}
                                                 >
                                                     <Edit3 style={{ width: '16px', height: '16px' }} />
                                                 </button>
@@ -948,7 +934,7 @@ function Profile() {
                                                         color: '#ef4444',
                                                         cursor: 'pointer'
                                                     }}
-                                                    title="Usuń klucz"
+                                                    title={t('profile.webauthn.deleteKey')}
                                                 >
                                                     <Trash2 style={{ width: '16px', height: '16px' }} />
                                                 </button>
@@ -965,18 +951,17 @@ function Profile() {
                                     marginBottom: '16px'
                                 }}>
                                     <Key style={{ width: '32px', height: '32px', color: '#64748b', margin: '0 auto 8px' }} />
-                                    <p style={{ color: '#64748b', margin: 0 }}>Brak zarejestrowanych kluczy</p>
+                                    <p style={{ color: '#64748b', margin: 0 }}>{t('profile.webauthn.noKeys')}</p>
                                 </div>
                             )}
 
-                            {/* Przycisk dodawania klucza */}
                             {webAuthnSupported && (
                                 <button 
                                     onClick={() => setShowWebAuthnSetup(true)}
                                     style={buttonStyle(false, 'success')}
                                 >
                                     <Plus style={{ width: '20px', height: '20px' }} />
-                                    Dodaj klucz bezpieczeństwa
+                                    {t('profile.webauthn.addKey')}
                                 </button>
                             )}
                         </div>
@@ -986,11 +971,11 @@ function Profile() {
                             <div style={cardStyle}>
                                 <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     <Key style={{ width: '18px', height: '18px', color: '#f59e0b' }} />
-                                    Kody zapasowe
+                                    {t('profile.backupCodes.title')}
                                 </h3>
                                 
                                 <p style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '16px' }}>
-                                    Kody jednorazowe na wypadek utraty dostępu do urządzenia
+                                    {t('profile.backupCodes.description')}
                                 </p>
 
                                 <div style={{ 
@@ -1002,7 +987,7 @@ function Profile() {
                                     borderRadius: '8px',
                                     marginBottom: '16px'
                                 }}>
-                                    <span style={{ color: '#94a3b8' }}>Pozostałe kody:</span>
+                                    <span style={{ color: '#94a3b8' }}>{t('profile.backupCodes.remaining')}:</span>
                                     <span style={{ 
                                         fontWeight: 'bold',
                                         color: twoFactorStatus?.backupCodesRemaining <= 2 ? '#ef4444' : '#22c55e'
@@ -1020,7 +1005,7 @@ function Profile() {
                                         marginBottom: '16px'
                                     }}>
                                         <p style={{ color: '#fca5a5', fontSize: '14px', margin: 0 }}>
-                                            ⚠️ Mało kodów zapasowych! Wygeneruj nowe.
+                                            ⚠️ {t('profile.backupCodes.lowCodes')}
                                         </p>
                                     </div>
                                 )}
@@ -1030,25 +1015,23 @@ function Profile() {
                                     style={buttonStyle(false, 'secondary')}
                                 >
                                     <RefreshCw style={{ width: '20px', height: '20px' }} />
-                                    Wygeneruj nowe kody
+                                    {t('profile.backupCodes.generate')}
                                 </button>
                             </div>
                         )}
                     </div>
                 )}
 
-                {/* ============================================ */}
                 {/* Tab: Hasło */}
-                {/* ============================================ */}
                 {activeTab === 'password' && (
                     <div style={cardStyle}>
                         <h2 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <Lock style={{ width: '20px', height: '20px', color: '#0ea5e9' }} />
-                            Zmień hasło
+                            {t('profile.changePassword')}
                         </h2>
                         <form onSubmit={handleChangePassword}>
                             <div style={{ marginBottom: '16px' }}>
-                                <label style={{ display: 'block', marginBottom: '8px', color: '#94a3b8', fontSize: '14px' }}>Aktualne hasło</label>
+                                <label style={{ display: 'block', marginBottom: '8px', color: '#94a3b8', fontSize: '14px' }}>{t('profile.currentPassword')}</label>
                                 <input 
                                     type="password" 
                                     value={passwords.currentPassword} 
@@ -1059,19 +1042,19 @@ function Profile() {
                                 />
                             </div>
                             <div style={{ marginBottom: '16px' }}>
-                                <label style={{ display: 'block', marginBottom: '8px', color: '#94a3b8', fontSize: '14px' }}>Nowe hasło</label>
+                                <label style={{ display: 'block', marginBottom: '8px', color: '#94a3b8', fontSize: '14px' }}>{t('profile.newPassword')}</label>
                                 <input 
                                     type="password" 
                                     value={passwords.newPassword} 
                                     onChange={(e) => setPasswords({ ...passwords, newPassword: e.target.value })} 
-                                    placeholder="Min. 8 znaków, 1 cyfra, 1 wielka litera" 
+                                    placeholder={t('profile.passwordRequirements')}
                                     style={inputStyle} 
                                     autoComplete="new-password"
                                     required 
                                 />
                             </div>
                             <div style={{ marginBottom: '24px' }}>
-                                <label style={{ display: 'block', marginBottom: '8px', color: '#94a3b8', fontSize: '14px' }}>Potwierdź nowe hasło</label>
+                                <label style={{ display: 'block', marginBottom: '8px', color: '#94a3b8', fontSize: '14px' }}>{t('profile.confirmNewPassword')}</label>
                                 <input 
                                     type="password" 
                                     value={passwords.confirmPassword} 
@@ -1083,23 +1066,21 @@ function Profile() {
                             </div>
                             <button type="submit" disabled={savingPassword} style={buttonStyle(savingPassword)}>
                                 {savingPassword ? <Loader2 className="animate-spin" style={{ width: '20px', height: '20px' }} /> : <Lock style={{ width: '20px', height: '20px' }} />}
-                                Zmień hasło
+                                {t('profile.changePassword')}
                             </button>
                         </form>
                     </div>
                 )}
 
-                {/* ============================================ */}
                 {/* Tab: Usuń konto */}
-                {/* ============================================ */}
                 {activeTab === 'delete' && (
                     <div style={{ backgroundColor: 'rgba(127, 29, 29, 0.2)', border: '1px solid #7f1d1d', borderRadius: '16px', padding: isMobile ? '20px' : '24px' }}>
                         <h2 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', color: '#ef4444' }}>
                             <AlertCircle style={{ width: '20px', height: '20px' }} />
-                            Usuń konto
+                            {t('profile.deleteAccount.title')}
                         </h2>
                         <p style={{ color: '#f87171', marginBottom: '24px', fontSize: isMobile ? '14px' : '16px' }}>
-                            Ta akcja jest nieodwracalna. Wszystkie Twoje dane zostaną trwale usunięte.
+                            {t('profile.deleteAccount.warning')}
                         </p>
                         
                         {!showDeleteConfirm ? (
@@ -1123,13 +1104,13 @@ function Profile() {
                                 }}
                             >
                                 <Trash2 style={{ width: '20px', height: '20px' }} />
-                                Chcę usunąć konto
+                                {t('profile.deleteAccount.wantToDelete')}
                             </button>
                         ) : (
                             <form onSubmit={handleDeleteAccount}>
                                 <div style={{ marginBottom: '16px' }}>
                                     <label style={{ display: 'block', marginBottom: '8px', color: '#f87171', fontSize: '14px' }}>
-                                        Wpisz hasło aby potwierdzić
+                                        {t('profile.deleteAccount.enterPassword')}
                                     </label>
                                     <input 
                                         type="password" 
@@ -1156,7 +1137,7 @@ function Profile() {
                                             minHeight: '48px' 
                                         }}
                                     >
-                                        Anuluj
+                                        {t('common.cancel')}
                                     </button>
                                     <button 
                                         type="submit"
@@ -1183,7 +1164,7 @@ function Profile() {
                                         ) : (
                                             <Trash2 style={{ width: '20px', height: '20px' }} />
                                         )}
-                                        Usuń konto
+                                        {t('profile.deleteAccount.title')}
                                     </button>
                                 </div>
                             </form>
@@ -1192,16 +1173,14 @@ function Profile() {
                 )}
             </main>
 
-            {/* ============================================ */}
             {/* MODALS */}
-            {/* ============================================ */}
 
             {/* Modal: TOTP Setup */}
             {showTotpSetup && totpData && (
                 <div style={modalOverlay}>
                     <div style={modalContent}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                            <h2 style={{ fontSize: '20px', fontWeight: 'bold', margin: 0 }}>Konfiguracja Authenticator</h2>
+                            <h2 style={{ fontSize: '20px', fontWeight: 'bold', margin: 0 }}>{t('profile.totp.setupTitle')}</h2>
                             <button 
                                 onClick={() => { setShowTotpSetup(false); setTotpData(null); setTotpCode(''); }}
                                 style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '8px' }}
@@ -1212,7 +1191,7 @@ function Profile() {
 
                         <div style={{ marginBottom: '24px' }}>
                             <p style={{ color: '#94a3b8', marginBottom: '16px', fontSize: '14px' }}>
-                                1. Zeskanuj kod QR w aplikacji authenticator:
+                                {t('profile.totp.step1')}
                             </p>
                             <div style={{ 
                                 backgroundColor: 'white', 
@@ -1226,7 +1205,7 @@ function Profile() {
                             </div>
                             
                             <p style={{ color: '#64748b', fontSize: '13px', textAlign: 'center', marginBottom: '8px' }}>
-                                Lub wprowadź ręcznie:
+                                {t('profile.totp.orEnterManually')}
                             </p>
                             <div style={{ 
                                 backgroundColor: '#0f172a', 
@@ -1243,7 +1222,7 @@ function Profile() {
                                 <button
                                     onClick={() => {
                                         navigator.clipboard.writeText(totpData.secret);
-                                        toast.success('Skopiowano!');
+                                        toast.success(t('profile.messages.copied'));
                                     }}
                                     style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '4px', flexShrink: 0 }}
                                 >
@@ -1254,7 +1233,7 @@ function Profile() {
 
                         <form onSubmit={handleEnableTotp}>
                             <p style={{ color: '#94a3b8', marginBottom: '12px', fontSize: '14px' }}>
-                                2. Wprowadź 6-cyfrowy kod z aplikacji:
+                                {t('profile.totp.step2')}
                             </p>
                             <input
                                 type="text"
@@ -1281,7 +1260,7 @@ function Profile() {
                                     onClick={() => { setShowTotpSetup(false); setTotpData(null); setTotpCode(''); }}
                                     style={buttonStyle(false, 'secondary')}
                                 >
-                                    Anuluj
+                                    {t('common.cancel')}
                                 </button>
                                 <button
                                     type="submit"
@@ -1296,7 +1275,7 @@ function Profile() {
                                     ) : (
                                         <CheckCircle style={{ width: '20px', height: '20px' }} />
                                     )}
-                                    Włącz 2FA
+                                    {t('profile.twoFactor.enable')}
                                 </button>
                             </div>
                         </form>
@@ -1309,7 +1288,7 @@ function Profile() {
                 <div style={modalOverlay}>
                     <div style={modalContent}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                            <h2 style={{ fontSize: '20px', fontWeight: 'bold', margin: 0 }}>Dodaj klucz bezpieczeństwa</h2>
+                            <h2 style={{ fontSize: '20px', fontWeight: 'bold', margin: 0 }}>{t('profile.webauthn.addKeyTitle')}</h2>
                             <button 
                                 onClick={() => { setShowWebAuthnSetup(false); setWebAuthnDeviceName(''); }}
                                 style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '8px' }}
@@ -1332,20 +1311,20 @@ function Profile() {
                                 <Fingerprint style={{ width: '40px', height: '40px', color: '#22c55e' }} />
                             </div>
                             <p style={{ color: '#94a3b8', fontSize: '14px' }}>
-                                Przygotuj klucz bezpieczeństwa lub użyj biometrii urządzenia
+                                {t('profile.webauthn.prepareKey')}
                             </p>
                         </div>
 
                         <div style={{ marginBottom: '24px' }}>
                             <label style={{ display: 'block', marginBottom: '8px', color: '#94a3b8', fontSize: '14px' }}>
-                                Nazwa urządzenia (opcjonalne)
+                                {t('profile.webauthn.deviceName')}
                             </label>
                             <input
                                 type="text"
                                 value={webAuthnDeviceName}
                                 onChange={(e) => setWebAuthnDeviceName(e.target.value)}
                                 style={inputStyle}
-                                placeholder="np. YubiKey 5, MacBook Pro, iPhone"
+                                placeholder={t('profile.webauthn.deviceNamePlaceholder')}
                                 maxLength={100}
                             />
                         </div>
@@ -1357,12 +1336,12 @@ function Profile() {
                             marginBottom: '24px'
                         }}>
                             <p style={{ color: '#f8fafc', fontSize: '14px', fontWeight: 'bold', marginBottom: '12px' }}>
-                                Po kliknięciu "Zarejestruj":
+                                {t('profile.webauthn.afterClick')}
                             </p>
                             <ul style={{ color: '#94a3b8', fontSize: '13px', margin: 0, paddingLeft: '20px' }}>
-                                <li style={{ marginBottom: '8px' }}>Włóż klucz USB lub dotknij czytnika NFC</li>
-                                <li style={{ marginBottom: '8px' }}>Lub użyj Face ID / Touch ID / Windows Hello</li>
-                                <li>Postępuj zgodnie z instrukcjami przeglądarki</li>
+                                <li style={{ marginBottom: '8px' }}>{t('profile.webauthn.instruction1')}</li>
+                                <li style={{ marginBottom: '8px' }}>{t('profile.webauthn.instruction2')}</li>
+                                <li>{t('profile.webauthn.instruction3')}</li>
                             </ul>
                         </div>
 
@@ -1371,7 +1350,7 @@ function Profile() {
                                 onClick={() => { setShowWebAuthnSetup(false); setWebAuthnDeviceName(''); }}
                                 style={buttonStyle(false, 'secondary')}
                             >
-                                Anuluj
+                                {t('common.cancel')}
                             </button>
                             <button
                                 onClick={handleRegisterWebAuthn}
@@ -1379,9 +1358,9 @@ function Profile() {
                                 style={buttonStyle(registeringWebAuthn, 'success')}
                             >
                                 {registeringWebAuthn ? (
-                                    <><Loader2 className="animate-spin" style={{ width: '20px', height: '20px' }} /> Oczekiwanie...</>
+                                    <><Loader2 className="animate-spin" style={{ width: '20px', height: '20px' }} /> {t('profile.webauthn.waiting')}</>
                                 ) : (
-                                    <><Key style={{ width: '20px', height: '20px' }} /> Zarejestruj klucz</>
+                                    <><Key style={{ width: '20px', height: '20px' }} /> {t('profile.webauthn.registerKey')}</>
                                 )}
                             </button>
                         </div>
@@ -1394,19 +1373,19 @@ function Profile() {
                 <div style={modalOverlay}>
                     <div style={{ ...modalContent, maxWidth: '400px' }}>
                         <h2 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '16px' }}>
-                            Zmień nazwę klucza
+                            {t('profile.webauthn.renameKey')}
                         </h2>
                         
                         <div style={{ marginBottom: '24px' }}>
                             <label style={{ display: 'block', marginBottom: '8px', color: '#94a3b8', fontSize: '14px' }}>
-                                Nowa nazwa
+                                {t('profile.webauthn.newName')}
                             </label>
                             <input
                                 type="text"
                                 value={editCredentialName}
                                 onChange={(e) => setEditCredentialName(e.target.value)}
                                 style={inputStyle}
-                                placeholder="np. MacBook Pro"
+                                placeholder={t('profile.webauthn.namePlaceholder')}
                                 maxLength={100}
                                 autoFocus
                             />
@@ -1417,7 +1396,7 @@ function Profile() {
                                 onClick={() => { setEditingCredential(null); setEditCredentialName(''); }}
                                 style={buttonStyle(false, 'secondary')}
                             >
-                                Anuluj
+                                {t('common.cancel')}
                             </button>
                             <button
                                 onClick={handleEditCredentialName}
@@ -1425,7 +1404,7 @@ function Profile() {
                                 style={buttonStyle(false)}
                             >
                                 <CheckCircle style={{ width: '18px', height: '18px' }} />
-                                Zapisz
+                                {t('common.save')}
                             </button>
                         </div>
                     </div>
@@ -1437,21 +1416,21 @@ function Profile() {
                 <div style={modalOverlay}>
                     <div style={{ ...modalContent, maxWidth: '400px' }}>
                         <h2 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '16px', color: '#ef4444' }}>
-                            Usuń klucz bezpieczeństwa
+                            {t('profile.webauthn.deleteKeyTitle')}
                         </h2>
                         
                         <p style={{ color: '#94a3b8', marginBottom: '16px', fontSize: '14px' }}>
-                            Czy na pewno chcesz usunąć klucz <strong>"{deletingCredential.deviceName || 'Klucz bezpieczeństwa'}"</strong>?
+                            {t('profile.webauthn.deleteConfirm')} <strong>"{deletingCredential.deviceName || t('profile.webauthn.securityKey')}"</strong>?
                         </p>
 
                         <p style={{ color: '#94a3b8', marginBottom: '16px', fontSize: '14px' }}>
-                            Wprowadź kod 2FA lub hasło aby potwierdzić:
+                            {t('profile.enter2FAOrPasswordToConfirm')}
                         </p>
 
                         {twoFactorStatus?.totpEnabled && (
                             <div style={{ marginBottom: '16px' }}>
                                 <label style={{ display: 'block', marginBottom: '8px', color: '#94a3b8', fontSize: '14px' }}>
-                                    Kod z aplikacji (6 cyfr)
+                                    {t('profile.codeFromApp')}
                                 </label>
                                 <input
                                     type="text"
@@ -1468,12 +1447,12 @@ function Profile() {
                         )}
 
                         {twoFactorStatus?.totpEnabled && (
-                            <div style={{ textAlign: 'center', color: '#64748b', marginBottom: '16px' }}>lub</div>
+                            <div style={{ textAlign: 'center', color: '#64748b', marginBottom: '16px' }}>{t('profile.or')}</div>
                         )}
 
                         <div style={{ marginBottom: '24px' }}>
                             <label style={{ display: 'block', marginBottom: '8px', color: '#94a3b8', fontSize: '14px' }}>
-                                Hasło do konta
+                                {t('profile.accountPassword')}
                             </label>
                             <input
                                 type="password"
@@ -1493,7 +1472,7 @@ function Profile() {
                                 }}
                                 style={buttonStyle(false, 'secondary')}
                             >
-                                Anuluj
+                                {t('common.cancel')}
                             </button>
                             <button
                                 onClick={handleDeleteCredential}
@@ -1501,7 +1480,7 @@ function Profile() {
                                 style={buttonStyle(false, 'danger')}
                             >
                                 <Trash2 style={{ width: '18px', height: '18px' }} />
-                                Usuń klucz
+                                {t('profile.webauthn.deleteKey')}
                             </button>
                         </div>
                     </div>
@@ -1513,7 +1492,7 @@ function Profile() {
                 <div style={modalOverlay}>
                     <div style={{ ...modalContent, maxWidth: '400px' }}>
                         <h2 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '16px' }}>
-                            Wygeneruj nowe kody zapasowe
+                            {t('profile.backupCodes.generateNew')}
                         </h2>
                         
                         <div style={{ 
@@ -1524,18 +1503,18 @@ function Profile() {
                             marginBottom: '16px'
                         }}>
                             <p style={{ color: '#fbbf24', fontSize: '13px', margin: 0 }}>
-                                ⚠️ Stare kody zostaną unieważnione
+                                ⚠️ {t('profile.backupCodes.oldCodesInvalidated')}
                             </p>
                         </div>
 
                         <p style={{ color: '#94a3b8', marginBottom: '16px', fontSize: '14px' }}>
-                            Wprowadź kod 2FA lub hasło aby potwierdzić:
+                            {t('profile.enter2FAOrPasswordToConfirm')}
                         </p>
 
                         {twoFactorStatus?.totpEnabled && (
                             <div style={{ marginBottom: '16px' }}>
                                 <label style={{ display: 'block', marginBottom: '8px', color: '#94a3b8', fontSize: '14px' }}>
-                                    Kod z aplikacji (6 cyfr)
+                                    {t('profile.codeFromApp')}
                                 </label>
                                 <input
                                     type="text"
@@ -1552,12 +1531,12 @@ function Profile() {
                         )}
 
                         {twoFactorStatus?.totpEnabled && (
-                            <div style={{ textAlign: 'center', color: '#64748b', marginBottom: '16px' }}>lub</div>
+                            <div style={{ textAlign: 'center', color: '#64748b', marginBottom: '16px' }}>{t('profile.or')}</div>
                         )}
 
                         <div style={{ marginBottom: '24px' }}>
                             <label style={{ display: 'block', marginBottom: '8px', color: '#94a3b8', fontSize: '14px' }}>
-                                Hasło do konta
+                                {t('profile.accountPassword')}
                             </label>
                             <input
                                 type="password"
@@ -1577,7 +1556,7 @@ function Profile() {
                                 }}
                                 style={buttonStyle(false, 'secondary')}
                             >
-                                Anuluj
+                                {t('common.cancel')}
                             </button>
                             <button
                                 onClick={handleRegenerateBackupCodes}
@@ -1589,7 +1568,7 @@ function Profile() {
                                 ) : (
                                     <RefreshCw style={{ width: '18px', height: '18px' }} />
                                 )}
-                                Generuj kody
+                                {t('profile.backupCodes.generateCodes')}
                             </button>
                         </div>
                     </div>
@@ -1602,9 +1581,9 @@ function Profile() {
                     <div style={modalContent}>
                         <div style={{ textAlign: 'center', marginBottom: '24px' }}>
                             <Key style={{ width: '48px', height: '48px', color: '#f59e0b', margin: '0 auto 16px' }} />
-                            <h2 style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '8px' }}>Kody zapasowe</h2>
+                            <h2 style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '8px' }}>{t('profile.backupCodes.title')}</h2>
                             <p style={{ color: '#94a3b8', fontSize: '14px' }}>
-                                Zapisz te kody w bezpiecznym miejscu
+                                {t('profile.backupCodes.saveSecurely')}
                             </p>
                         </div>
 
@@ -1616,7 +1595,7 @@ function Profile() {
                             marginBottom: '24px'
                         }}>
                             <p style={{ color: '#fca5a5', fontSize: '13px', margin: 0, textAlign: 'center' }}>
-                                ⚠️ <strong>Ważne!</strong> Te kody nie będą pokazane ponownie.
+                                ⚠️ <strong>{t('profile.backupCodes.important')}</strong> {t('profile.backupCodes.notShownAgain')}
                             </p>
                         </div>
 
@@ -1648,14 +1627,14 @@ function Profile() {
                                 style={buttonStyle(false, 'secondary')}
                             >
                                 <Copy style={{ width: '18px', height: '18px' }} />
-                                Kopiuj
+                                {t('profile.backupCodes.copy')}
                             </button>
                             <button
                                 onClick={handleDownloadBackupCodes}
                                 style={buttonStyle(false, 'secondary')}
                             >
                                 <RefreshCw style={{ width: '18px', height: '18px' }} />
-                                Pobierz
+                                {t('profile.backupCodes.download')}
                             </button>
                         </div>
 
@@ -1663,7 +1642,7 @@ function Profile() {
                             onClick={() => { setShowBackupCodes(false); setBackupCodes([]); }}
                             style={buttonStyle(false)}
                         >
-                            Zapisałem kody - zamknij
+                            {t('profile.backupCodes.savedClose')}
                         </button>
                     </div>
                 </div>
@@ -1673,17 +1652,17 @@ function Profile() {
             {showDisable2FA && (
                 <div style={modalOverlay}>
                     <div style={{ ...modalContent, maxWidth: '400px' }}>
-                                                <h2 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '16px', color: '#ef4444' }}>
-                            Wyłącz TOTP
+                        <h2 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '16px', color: '#ef4444' }}>
+                            {t('profile.totp.disableTitle')}
                         </h2>
                         
                         <p style={{ color: '#94a3b8', marginBottom: '24px', fontSize: '14px' }}>
-                            Aby wyłączyć aplikację authenticator, wprowadź kod 2FA lub hasło do konta.
+                            {t('profile.totp.disableDescription')}
                         </p>
 
-                        <div style={{ marginBottom: '16px' }}>
+                                                <div style={{ marginBottom: '16px' }}>
                             <label style={{ display: 'block', marginBottom: '8px', color: '#94a3b8', fontSize: '14px' }}>
-                                Kod z aplikacji (6 cyfr)
+                                {t('profile.codeFromApp')}
                             </label>
                             <input
                                 type="text"
@@ -1698,11 +1677,11 @@ function Profile() {
                             />
                         </div>
 
-                        <div style={{ textAlign: 'center', color: '#64748b', marginBottom: '16px' }}>lub</div>
+                        <div style={{ textAlign: 'center', color: '#64748b', marginBottom: '16px' }}>{t('profile.or')}</div>
 
                         <div style={{ marginBottom: '24px' }}>
                             <label style={{ display: 'block', marginBottom: '8px', color: '#94a3b8', fontSize: '14px' }}>
-                                Hasło do konta
+                                {t('profile.accountPassword')}
                             </label>
                             <input
                                 type="password"
@@ -1718,7 +1697,7 @@ function Profile() {
                                 onClick={() => { setShowDisable2FA(false); setDisableCode(''); setDisablePassword(''); }}
                                 style={buttonStyle(false, 'secondary')}
                             >
-                                Anuluj
+                                {t('common.cancel')}
                             </button>
                             <button
                                 onClick={handleDisableTotp}
@@ -1728,7 +1707,7 @@ function Profile() {
                                 {disabling2FA ? (
                                     <Loader2 className="animate-spin" style={{ width: '20px', height: '20px' }} />
                                 ) : (
-                                    'Wyłącz TOTP'
+                                    t('profile.totp.disable')
                                 )}
                             </button>
                         </div>
@@ -1740,4 +1719,3 @@ function Profile() {
 }
 
 export default Profile;
-                        
