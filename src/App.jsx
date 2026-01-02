@@ -1,7 +1,9 @@
-// App.jsx - ZOPTYMALIZOWANY Z TRASĄ REFERALI I 2FA
+// App.jsx - ZOPTYMALIZOWANY Z TRASĄ REFERALI, 2FA I SYSTEMEM TŁUMACZEŃ
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { Suspense, lazy, Component } from 'react';
+import LanguagePopup from './components/LanguagePopup';
+import LanguageSwitcher from './components/LanguageSwitcher';
 
 // Loading Spinner Component
 const LoadingSpinner = () => (
@@ -116,6 +118,11 @@ function App() {
                         }
                     }}
                 />
+                
+                {/* 🌍 Komponenty językowe */}
+                <LanguagePopup />
+                <LanguageSwitcher />
+                
                 <Suspense fallback={<LoadingSpinner />}>
                     <Routes>
                         <Route path="/" element={<Home />} />
