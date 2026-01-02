@@ -142,7 +142,9 @@ function Profile() {
 
     // Sprawdź WebAuthn support
     useEffect(() => {
-        setWebAuthnSupported(isWebAuthnSupported());
+        const supported = !!(window.PublicKeyCredential && typeof window.PublicKeyCredential === 'function');
+        console.log('🔐 WebAuthn supported:', supported);
+        setWebAuthnSupported(supported);
     }, []);
 
     // Sprawdź czy przekierowano z wymuszonego setupu
