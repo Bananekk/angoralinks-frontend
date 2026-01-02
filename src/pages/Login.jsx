@@ -1,5 +1,5 @@
 // Login.jsx - Z OBSŁUGĄ 2FA i WebAuthn
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Link2, Mail, Lock, Loader2, Shield, Key, Smartphone, Fingerprint } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -7,7 +7,6 @@ import api from '../api/axios';
 import { 
     verifyTwoFactorLogin, 
     getWebAuthnLoginOptions, 
-    verifyWebAuthnLogin,
     isWebAuthnSupported 
 } from '../api/twoFactor';
 
@@ -56,6 +55,7 @@ function Login() {
     
     // WebAuthn state
     const [webAuthnLoading, setWebAuthnLoading] = useState(false);
+    const webAuthnInProgress = useRef(false); // 🆕 Blokada wielokrotnego wywołania
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -68,13 +68,11 @@ function Login() {
         try {
             const response = await api.post('/auth/login', formData);
             
-            // Sprawdź czy wymagane 2FA
             if (response.data.requiresTwoFactor) {
                 setTwoFactorRequired(true);
                 setChallengeToken(response.data.challengeToken);
                 setTwoFactorMethods(response.data.twoFactorMethods || ['TOTP']);
                 
-                // Ustaw domyślną metodę - preferuj WebAuthn jeśli dostępny
                 const methods = response.data.twoFactorMethods || ['TOTP'];
                 if (methods.includes('WEBAUTHN') && isWebAuthnSupported()) {
                     setSelectedMethod('WEBAUTHN');
@@ -88,7 +86,6 @@ function Login() {
                 return;
             }
             
-            // Sprawdź czy wymagana konfiguracja 2FA
             if (response.data.requiresTwoFactorSetup) {
                 setTwoFactorSetupRequired(true);
                 setChallengeToken(response.data.setupToken);
@@ -96,7 +93,6 @@ function Login() {
                 return;
             }
             
-            // Normalne logowanie
             localStorage.setItem('token', response.data.token);
             localStorage.setItem('user', JSON.stringify(response.data.user));
             toast.success('Zalogowano pomyślnie!');
@@ -109,7 +105,6 @@ function Login() {
         }
     };
 
-    // Weryfikacja kodu 2FA (TOTP / Backup Code)
     const handleVerify2FA = async (e) => {
         e.preventDefault();
         
@@ -140,19 +135,28 @@ function Login() {
         }
     };
 
-    // 🆕 Weryfikacja WebAuthn
+    // 🆕 Poprawiona weryfikacja WebAuthn z blokadą
     const handleWebAuthnLogin = async () => {
+        // Blokada wielokrotnego wywołania
+        if (webAuthnInProgress.current || webAuthnLoading) {
+            console.log('WebAuthn already in progress, skipping...');
+            return;
+        }
+
         if (!isWebAuthnSupported()) {
             toast.error('Twoja przeglądarka nie obsługuje kluczy bezpieczeństwa');
             return;
         }
 
+        webAuthnInProgress.current = true;
         setWebAuthnLoading(true);
 
         try {
             // 1. Pobierz opcje autentykacji z serwera
+            console.log('Fetching WebAuthn options...');
             const optionsResponse = await getWebAuthnLoginOptions(challengeToken);
             const options = optionsResponse.data;
+            console.log('Got options:', options);
 
             // 2. Konwertuj dane z base64url
             const publicKeyOptions = {
@@ -165,9 +169,11 @@ function Login() {
             };
 
             // 3. Wywołaj WebAuthn API
+            console.log('Calling navigator.credentials.get...');
             const credential = await navigator.credentials.get({
                 publicKey: publicKeyOptions
             });
+            console.log('Got credential:', credential);
 
             // 4. Przygotuj odpowiedź dla serwera
             const webauthnResponse = {
@@ -185,13 +191,22 @@ function Login() {
             };
 
             // 5. Zweryfikuj na serwerze
-            const verifyResponse = await verifyWebAuthnLogin(challengeToken, webauthnResponse);
+            console.log('Verifying on server...');
+            const verifyResponse = await api.post('/auth/2fa/verify', {
+                challengeToken,
+                response: webauthnResponse,
+                method: 'WEBAUTHN'
+            });
 
             // 6. Zaloguj użytkownika
-            localStorage.setItem('token', verifyResponse.token);
-            localStorage.setItem('user', JSON.stringify(verifyResponse.user));
-            toast.success('Zalogowano pomyślnie!');
-            navigate('/dashboard');
+            if (verifyResponse.data.success) {
+                localStorage.setItem('token', verifyResponse.data.token);
+                localStorage.setItem('user', JSON.stringify(verifyResponse.data.user));
+                toast.success('Zalogowano pomyślnie!');
+                navigate('/dashboard');
+            } else {
+                throw new Error(verifyResponse.data.error || 'Błąd weryfikacji');
+            }
 
         } catch (error) {
             console.error('WebAuthn login error:', error);
@@ -202,15 +217,17 @@ function Login() {
                 toast.error('Błąd bezpieczeństwa - sprawdź czy używasz HTTPS');
             } else if (error.name === 'InvalidStateError') {
                 toast.error('Klucz nie jest zarejestrowany dla tego konta');
+            } else if (error.response?.data?.error) {
+                toast.error(error.response.data.error);
             } else {
-                toast.error(error.response?.data?.error || 'Błąd weryfikacji klucza');
+                toast.error('Błąd weryfikacji klucza');
             }
         } finally {
             setWebAuthnLoading(false);
+            webAuthnInProgress.current = false;
         }
     };
 
-    // Powrót do logowania
     const handleBack = () => {
         setTwoFactorRequired(false);
         setTwoFactorSetupRequired(false);
@@ -218,6 +235,7 @@ function Login() {
         setTwoFactorCode('');
         setSelectedMethod('TOTP');
         setFormData({ email: '', password: '' });
+        webAuthnInProgress.current = false; // 🆕 Reset blokady
     };
 
     const inputStyle = {
@@ -251,7 +269,7 @@ function Login() {
     if (twoFactorRequired) {
         const hasWebAuthn = twoFactorMethods.includes('WEBAUTHN') && isWebAuthnSupported();
         const hasTotp = twoFactorMethods.includes('TOTP');
-        const hasBackupCode = true; // Zawsze dostępne jako fallback
+        const hasBackupCode = true;
 
         return (
             <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#0f172a', color: '#f8fafc', padding: '16px' }}>
@@ -274,7 +292,7 @@ function Login() {
                             </p>
                         </div>
 
-                        {/* 🆕 PRZYCISK WEBAUTHN - główna opcja jeśli dostępna */}
+                        {/* PRZYCISK WEBAUTHN */}
                         {hasWebAuthn && selectedMethod === 'WEBAUTHN' && (
                             <div style={{ marginBottom: '24px' }}>
                                 <button
@@ -292,7 +310,8 @@ function Login() {
                                         flexDirection: 'column',
                                         alignItems: 'center',
                                         gap: '12px',
-                                        transition: 'all 0.2s ease'
+                                        transition: 'all 0.2s ease',
+                                        opacity: webAuthnLoading ? 0.7 : 1
                                     }}
                                 >
                                     {webAuthnLoading ? (
@@ -328,11 +347,10 @@ function Login() {
                             </div>
                         )}
 
-                        {/* Wybór metody (tabs) - pokaż tylko gdy NIE jest wybrany WebAuthn jako główna */}
+                        {/* Wybór metody (tabs) */}
                         {(selectedMethod !== 'WEBAUTHN' || !hasWebAuthn) && (
                             <>
-                                {/* Tabs dla metod kodowych */}
-                                <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', justifyContent: 'center' }}>
+                                <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', justifyContent: 'center', flexWrap: 'wrap' }}>
                                     {hasTotp && (
                                         <button
                                             type="button"
@@ -396,7 +414,7 @@ function Login() {
                                     </button>
                                 </div>
 
-                                {/* Formularz kodu (TOTP lub Backup) */}
+                                {/* Formularz kodu */}
                                 {(selectedMethod === 'TOTP' || selectedMethod === 'BACKUP_CODE') && (
                                     <form onSubmit={handleVerify2FA}>
                                         <div style={{ marginBottom: '24px' }}>
@@ -539,7 +557,6 @@ function Login() {
                             <h1 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '8px' }}>Wymagana konfiguracja 2FA</h1>
                             <p style={{ color: '#94a3b8', fontSize: '14px', lineHeight: '1.6' }}>
                                 Administrator wymaga włączenia dwuskładnikowego uwierzytelniania na Twoim koncie.
-                                Skonfiguruj je teraz aby kontynuować.
                             </p>
                         </div>
 
