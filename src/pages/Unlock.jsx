@@ -1,4 +1,4 @@
-// Unlock.jsx - RESPONSYWNY - 5 KROKÓW
+// Unlock.jsx - RESPONSYWNY - 5 KROKÓW z POPUNDEREM
 import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { Link2, Clock, CheckCircle, ExternalLink, Loader2, AlertCircle, Shield, MousePointer, ShieldOff, RefreshCw } from 'lucide-react';
@@ -27,6 +27,30 @@ const useWindowSize = () => {
         ...windowSize,
         isMobile: windowSize.width < 768
     };
+};
+
+// Hook do ładowania popundera
+const usePopunder = (shouldLoad) => {
+    const popunderLoaded = useRef(false);
+
+    useEffect(() => {
+        if (shouldLoad && !popunderLoaded.current) {
+            popunderLoaded.current = true;
+            
+            // Załaduj skrypt popundera
+            const script = document.createElement('script');
+            script.src = 'https://pl28300392.effectivegatecpm.com/4c/bb/c9/4cbbc9f8d48a865dfc7e7d0b6f1015de.js';
+            script.async = true;
+            document.body.appendChild(script);
+
+            return () => {
+                // Cleanup - usuń skrypt przy odmontowaniu
+                if (script.parentNode) {
+                    script.parentNode.removeChild(script);
+                }
+            };
+        }
+    }, [shouldLoad]);
 };
 
 const TOTAL_STEPS = 5;
@@ -65,6 +89,9 @@ function Unlock() {
 
     const HCAPTCHA_SITE_KEY = 'c6486bc4-4a2e-4c3c-b8e6-720cf3dc324e';
     const DIRECT_LINK = 'https://www.effectivegatecpm.com/ywkxbw41h?key=d1f50bdb00b57c1ece2c8c53b6332d4d';
+
+    // Załaduj popunder gdy captcha się pojawi
+    usePopunder(showCaptcha);
 
     // Pobierz aktualną konfigurację kroku
     const currentStepConfig = STEPS_CONFIG[step - 1];
