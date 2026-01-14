@@ -1,4 +1,4 @@
-// Unlock.jsx - RESPONSYWNY - 5 KROKÓW z POPUNDEREM
+// Unlock.jsx - Z DWUETAPOWYM SYSTEMEM ZAROBKÓW
 import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { Link2, Clock, CheckCircle, ExternalLink, Loader2, AlertCircle, Shield, MousePointer, ShieldOff, RefreshCw } from 'lucide-react';
@@ -6,10 +6,8 @@ import HCaptcha from '@hcaptcha/react-hcaptcha';
 import AdBanner from '../components/AdBanner';
 import { useTranslation } from '../i18n';
 
-// API URL - łatwa zmiana w przyszłości
 const API_URL = 'https://angoralinks-backend-production.up.railway.app';
 
-// Hook do wykrywania rozmiaru ekranu
 const useWindowSize = () => {
     const [windowSize, setWindowSize] = useState({
         width: typeof window !== 'undefined' ? window.innerWidth : 1024,
@@ -29,22 +27,18 @@ const useWindowSize = () => {
     };
 };
 
-// Hook do ładowania popundera
 const usePopunder = (shouldLoad) => {
     const popunderLoaded = useRef(false);
 
     useEffect(() => {
         if (shouldLoad && !popunderLoaded.current) {
             popunderLoaded.current = true;
-            
-            // Załaduj skrypt popundera
             const script = document.createElement('script');
             script.src = 'https://pl28300392.effectivegatecpm.com/4c/bb/c9/4cbbc9f8d48a865dfc7e7d0b6f1015de.js';
             script.async = true;
             document.body.appendChild(script);
 
             return () => {
-                // Cleanup - usuń skrypt przy odmontowaniu
                 if (script.parentNode) {
                     script.parentNode.removeChild(script);
                 }
@@ -59,8 +53,7 @@ function Unlock() {
     const { shortCode } = useParams();
     const { isMobile } = useWindowSize();
     const { t } = useTranslation();
-    
-    // Konfiguracja kroków z tłumaczeniami
+
     const STEPS_CONFIG = [
         { type: 'URL', label: t('unlock.steps.openAd') },
         { type: 'BANNER', label: t('unlock.steps.clickAd') },
@@ -68,7 +61,7 @@ function Unlock() {
         { type: 'URL', label: t('unlock.steps.openAd') },
         { type: 'BANNER', label: t('unlock.steps.watchAd') }
     ];
-    
+
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [linkData, setLinkData] = useState(null);
@@ -79,49 +72,50 @@ function Unlock() {
     const [timerDone, setTimerDone] = useState(false);
     const [unlocking, setUnlocking] = useState(false);
     const [targetUrl, setTargetUrl] = useState(null);
-    
+
     const [adBlockDetected, setAdBlockDetected] = useState(false);
     const [checkingAdBlock, setCheckingAdBlock] = useState(true);
-    
+
     const [captchaToken, setCaptchaToken] = useState(null);
     const [showCaptcha, setShowCaptcha] = useState(false);
     const captchaRef = useRef(null);
 
+    // 🔥 NOWE: Przechowujemy visitId z /unlock
+    const [visitId, setVisitId] = useState(null);
+
     const HCAPTCHA_SITE_KEY = 'c6486bc4-4a2e-4c3c-b8e6-720cf3dc324e';
     const DIRECT_LINK = 'https://www.effectivegatecpm.com/ywkxbw41h?key=d1f50bdb00b57c1ece2c8c53b6332d4d';
 
-    // Załaduj popunder gdy captcha się pojawi
     usePopunder(showCaptcha);
 
-    // Pobierz aktualną konfigurację kroku
     const currentStepConfig = STEPS_CONFIG[step - 1];
     const isLastStep = step === TOTAL_STEPS;
 
     const detectAdBlock = async () => {
         setCheckingAdBlock(true);
-        
+
         try {
             const testAd = document.createElement('div');
             testAd.innerHTML = '&nbsp;';
             testAd.className = 'adsbox ad-banner ad-placeholder textads banner-ads';
             testAd.style.cssText = 'position: absolute; left: -9999px; top: -9999px; width: 1px; height: 1px;';
             document.body.appendChild(testAd);
-            
+
             await new Promise(resolve => setTimeout(resolve, 100));
-            
-            const isBlocked = testAd.offsetHeight === 0 || 
-                              testAd.offsetWidth === 0 || 
-                              testAd.clientHeight === 0 ||
-                              window.getComputedStyle(testAd).display === 'none';
-            
+
+            const isBlocked = testAd.offsetHeight === 0 ||
+                testAd.offsetWidth === 0 ||
+                testAd.clientHeight === 0 ||
+                window.getComputedStyle(testAd).display === 'none';
+
             document.body.removeChild(testAd);
-            
+
             if (isBlocked) {
                 setAdBlockDetected(true);
                 setCheckingAdBlock(false);
                 return;
             }
-            
+
             try {
                 await fetch('https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js', {
                     method: 'HEAD',
@@ -132,11 +126,11 @@ function Unlock() {
             } catch (e) {
                 setAdBlockDetected(true);
             }
-            
+
         } catch (e) {
             setAdBlockDetected(true);
         }
-        
+
         setCheckingAdBlock(false);
     };
 
@@ -148,7 +142,6 @@ function Unlock() {
         detectAdBlock();
     };
 
-    // Pobieranie danych o linku
     useEffect(() => {
         const fetchLink = async () => {
             try {
@@ -165,7 +158,6 @@ function Unlock() {
         fetchLink();
     }, [shortCode, t]);
 
-    // Timer - tylko na ostatnim kroku (BANNER)
     useEffect(() => {
         if (!timerStarted || timerDone) return;
         const interval = setInterval(() => {
@@ -182,27 +174,23 @@ function Unlock() {
         return () => clearInterval(interval);
     }, [timerStarted, timerDone]);
 
-    // Kliknięcie w Direct Link (URL)
     const handleDirectLinkClick = () => {
         window.open(DIRECT_LINK, '_blank');
         setAdClicked(true);
     };
 
-    // Kliknięcie w Banner
     const handleAdClick = () => {
         if (!adClicked) {
             setAdClicked(true);
-            // Jeśli to ostatni krok, uruchom timer
             if (isLastStep) {
                 setTimerStarted(true);
             }
         }
     };
 
-    // Przejście do następnego kroku
     const handleNextStep = () => {
         if (!adClicked) return;
-        
+
         if (step < TOTAL_STEPS) {
             setStep(step + 1);
             setAdClicked(false);
@@ -213,10 +201,10 @@ function Unlock() {
         setCaptchaToken(token);
     };
 
-    // Odblokowywanie linku
+    // 🔥 ZAKTUALIZOWANE: Dwuetapowe odblokowywanie
     const handleUnlock = async () => {
         if (!timerDone) return;
-        
+
         if (showCaptcha && !captchaToken) {
             setError(t('unlock.errors.solveCaptchaFirst'));
             return;
@@ -226,25 +214,57 @@ function Unlock() {
         setError(null);
 
         try {
-            const response = await fetch(`${API_URL}/l/unlock/${shortCode}`, {
+            // KROK 1: Unlock - rejestracja wizyty (bez zarobku)
+            const unlockResponse = await fetch(`${API_URL}/l/unlock/${shortCode}`, {
                 method: 'POST',
-                headers: { 
+                headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ 
+                body: JSON.stringify({
                     hcaptchaToken: captchaToken,
                     country: 'PL',
                     device: /Mobile|Android|iPhone/i.test(navigator.userAgent) ? 'mobile' : 'desktop'
                 })
             });
-            const data = await response.json();
-            
-            if (!response.ok) {
-                throw new Error(data.message || t('unlock.errors.unlockFailed'));
+
+            const unlockData = await unlockResponse.json();
+
+            if (!unlockResponse.ok) {
+                throw new Error(unlockData.message || t('unlock.errors.unlockFailed'));
             }
-            
-            setTargetUrl(data.redirectUrl);
-            setTimeout(() => { window.location.href = data.redirectUrl; }, 1500);
+
+            // KROK 2: Jeśli mamy visitId (unikalna wizyta), potwierdź wyświetlenie reklamy
+            if (unlockData.visitId) {
+                try {
+                    const confirmResponse = await fetch(`${API_URL}/l/confirm-ad/${shortCode}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            visitId: unlockData.visitId
+                        })
+                    });
+
+                    const confirmData = await confirmResponse.json();
+
+                    if (confirmResponse.ok) {
+                        console.log(`✅ Zarobek potwierdzony: $${confirmData.earned?.toFixed(6) || 0}`);
+                    } else {
+                        console.warn('⚠️ Nie udało się potwierdzić zarobku:', confirmData.message);
+                    }
+                } catch (confirmError) {
+                    console.error('❌ Błąd potwierdzania reklamy:', confirmError);
+                    // Nie blokujemy przekierowania - user i tak dostaje link
+                }
+            }
+
+            // Przekierowanie do docelowego URL
+            setTargetUrl(unlockData.redirectUrl);
+            setTimeout(() => {
+                window.location.href = unlockData.redirectUrl;
+            }, 1500);
+
         } catch (err) {
             setError(err.message);
             if (captchaRef.current) {
@@ -256,7 +276,6 @@ function Unlock() {
         }
     };
 
-    // Generuj tekst statusu dla kroku
     const getStepStatusText = () => {
         if (adClicked) {
             if (isLastStep && !timerDone) {
@@ -270,7 +289,6 @@ function Unlock() {
         return `${t('unlock.step')} ${step}/${TOTAL_STEPS} - ${currentStepConfig.label}`;
     };
 
-    // Styles
     const styles = {
         container: {
             minHeight: '100vh',
@@ -394,7 +412,6 @@ function Unlock() {
         }
     };
 
-    // Ekran ładowania sprawdzania AdBlocka
     if (checkingAdBlock) {
         return (
             <div style={styles.centerScreen}>
@@ -404,12 +421,11 @@ function Unlock() {
         );
     }
 
-    // Ekran blokady - AdBlock wykryty
     if (adBlockDetected) {
         return (
             <div style={styles.centerScreen}>
-                <div style={{ 
-                    maxWidth: '500px', 
+                <div style={{
+                    maxWidth: '500px',
                     width: '100%',
                     backgroundColor: 'rgba(30, 41, 59, 0.8)',
                     border: '2px solid #ef4444',
@@ -522,7 +538,6 @@ function Unlock() {
         );
     }
 
-    // Renderowanie kroku typu URL (Direct Link)
     const renderURLStep = () => (
         <div style={{ marginBottom: '24px' }}>
             <div style={styles.adCard(adClicked)}>
@@ -555,7 +570,6 @@ function Unlock() {
         </div>
     );
 
-    // Renderowanie kroku typu BANNER (bez timera - kroki pośrednie)
     const renderBannerStep = () => (
         <div style={{ marginBottom: '24px' }}>
             <div style={styles.adCard(adClicked)}>
@@ -589,7 +603,6 @@ function Unlock() {
         </div>
     );
 
-    // Renderowanie ostatniego kroku BANNER (z timerem i captcha)
     const renderFinalBannerStep = () => (
         <div style={{ marginBottom: '24px' }}>
             <div style={styles.adCard(adClicked)}>
@@ -620,7 +633,6 @@ function Unlock() {
                 <AdBanner step={step} onAdClick={handleAdClick} />
             </div>
 
-            {/* Timer / Captcha / Unlock */}
             <div style={{ textAlign: 'center' }}>
                 {!adClicked ? (
                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: '12px', backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '12px', padding: isMobile ? '12px 20px' : '16px 32px', width: isMobile ? '100%' : 'auto', justifyContent: 'center' }}>
@@ -646,7 +658,7 @@ function Unlock() {
                                 />
                             </div>
                         )}
-                        
+
                         <button
                             onClick={handleUnlock}
                             disabled={unlocking || (showCaptcha && !captchaToken)}
@@ -666,7 +678,6 @@ function Unlock() {
         </div>
     );
 
-    // Wybierz odpowiedni renderer dla aktualnego kroku
     const renderCurrentStep = () => {
         if (currentStepConfig.type === 'URL') {
             return renderURLStep();
@@ -681,7 +692,6 @@ function Unlock() {
 
     return (
         <div style={styles.container}>
-            {/* Header */}
             <header style={styles.header}>
                 <div style={styles.headerContent}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -695,14 +705,11 @@ function Unlock() {
                 </div>
             </header>
 
-            {/* Progress bar */}
             <div style={{ backgroundColor: '#1e293b', height: '6px' }}>
                 <div style={{ backgroundColor: '#0ea5e9', height: '100%', width: `${(step / TOTAL_STEPS) * 100}%`, transition: 'width 0.5s' }} />
             </div>
 
-            {/* Main */}
             <main style={styles.main}>
-                {/* Kroki - 5 kółek */}
                 <div style={styles.stepIndicator}>
                     {Array.from({ length: TOTAL_STEPS }, (_, i) => i + 1).map((s) => (
                         <div key={s} style={styles.stepCircle(s === step, s < step)}>
@@ -711,7 +718,6 @@ function Unlock() {
                     ))}
                 </div>
 
-                {/* Link info */}
                 <div style={styles.infoCard}>
                     <h1 style={{ fontSize: isMobile ? '20px' : '24px', fontWeight: 'bold', marginBottom: '8px' }}>
                         {linkData?.title || t('unlock.goToPage')}
@@ -721,14 +727,12 @@ function Unlock() {
                     </p>
                 </div>
 
-                {/* Błąd */}
                 {error && (
                     <div style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef4444', borderRadius: '12px', padding: '16px', marginBottom: '20px', textAlign: 'center' }}>
                         <p style={{ color: '#ef4444', fontSize: '14px' }}>{error}</p>
                     </div>
                 )}
 
-                {/* Renderuj aktualny krok */}
                 {renderCurrentStep()}
 
                 <p style={{ textAlign: 'center', fontSize: isMobile ? '12px' : '14px', color: '#64748b', marginTop: '24px' }}>
