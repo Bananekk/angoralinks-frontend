@@ -29,7 +29,7 @@ const shouldCache = (config) => {
 };
 
 const api = axios.create({
-  baseURL: 'https://angoralinks-backend-production.up.railway.app/api',
+  baseURL: 'https://angoralinks-backend.onrender.com/api',
   headers: {
     'Content-Type': 'application/json'
   },

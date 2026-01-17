@@ -6,7 +6,7 @@ import HCaptcha from '@hcaptcha/react-hcaptcha';
 import AdBanner from '../components/AdBanner';
 import { useTranslation } from '../i18n';
 
-const API_URL = 'https://angoralinks-backend-production.up.railway.app';
+const API_URL = 'https://angoralinks-backend.onrender.com';
 
 const useWindowSize = () => {
     const [windowSize, setWindowSize] = useState({
