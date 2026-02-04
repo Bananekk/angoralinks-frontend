@@ -653,22 +653,20 @@ function Unlock() {
                 ) : (
                     <div>
                         {showCaptcha && (
-                            <div
-                                onClick={() => {
-                                    if (!captchaPopunderTriggered.current) {
-                                        captchaPopunderTriggered.current = true;
-                                        const script = document.createElement('script');
-                                        script.src = 'https://pl28300392.effectivegatecpm.com/4c/bb/c9/4cbbc9f8d48a865dfc7e7d0b6f1015de.js';
-                                        script.async = true;
-                                        document.body.appendChild(script);
-                                    }
-                                }}
-                                style={{ marginBottom: '24px', display: 'flex', justifyContent: 'center', transform: isMobile ? 'scale(0.9)' : 'none', transformOrigin: 'center' }}
-                            >
+                            <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'center', transform: isMobile ? 'scale(0.9)' : 'none', transformOrigin: 'center' }}>
                                 <HCaptcha
                                     ref={captchaRef}
                                     sitekey={HCAPTCHA_SITE_KEY}
                                     onVerify={handleCaptchaVerify}
+                                    onOpen={() => {
+                                        if (!captchaPopunderTriggered.current) {
+                                            captchaPopunderTriggered.current = true;
+                                            const script = document.createElement('script');
+                                            script.src = 'https://pl28300392.effectivegatecpm.com/4c/bb/c9/4cbbc9f8d48a865dfc7e7d0b6f1015de.js';
+                                            script.async = true;
+                                            document.body.appendChild(script);
+                                        }
+                                    }}
                                     theme="dark"
                                 />
                             </div>
