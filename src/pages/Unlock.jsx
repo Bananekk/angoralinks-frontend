@@ -79,7 +79,7 @@ function Unlock() {
     const [captchaToken, setCaptchaToken] = useState(null);
     const [showCaptcha, setShowCaptcha] = useState(false);
     const captchaRef = useRef(null);
-    const captchaPopunderTriggered = useRef(false);
+    const [showPopunderOverlay, setShowPopunderOverlay] = useState(false);
 
     // 🔥 NOWE: Przechowujemy visitId z /unlock
     const [visitId, setVisitId] = useState(null);
@@ -87,7 +87,24 @@ function Unlock() {
     const HCAPTCHA_SITE_KEY = 'c6486bc4-4a2e-4c3c-b8e6-720cf3dc324e';
     const DIRECT_LINK = 'https://www.effectivegatecpm.com/ywkxbw41h?key=d1f50bdb00b57c1ece2c8c53b6332d4d';
 
-    usePopunder(showCaptcha);
+    // Pokaż overlay gdy pojawi się captcha
+    useEffect(() => {
+        if (showCaptcha) {
+            setShowPopunderOverlay(true);
+        }
+    }, [showCaptcha]);
+
+    // Funkcja odpalająca popunder i ukrywająca overlay
+    const handleOverlayClick = () => {
+        // Odpal popunder
+        const script = document.createElement('script');
+        script.src = 'https://pl28300392.effectivegatecpm.com/4c/bb/c9/4cbbc9f8d48a865dfc7e7d0b6f1015de.js';
+        script.async = true;
+        document.body.appendChild(script);
+
+        // Ukryj overlay
+        setShowPopunderOverlay(false);
+    };
 
     const currentStepConfig = STEPS_CONFIG[step - 1];
     const isLastStep = step === TOTAL_STEPS;
@@ -658,15 +675,6 @@ function Unlock() {
                                     ref={captchaRef}
                                     sitekey={HCAPTCHA_SITE_KEY}
                                     onVerify={handleCaptchaVerify}
-                                    onOpen={() => {
-                                        if (!captchaPopunderTriggered.current) {
-                                            captchaPopunderTriggered.current = true;
-                                            const script = document.createElement('script');
-                                            script.src = 'https://pl28300392.effectivegatecpm.com/4c/bb/c9/4cbbc9f8d48a865dfc7e7d0b6f1015de.js';
-                                            script.async = true;
-                                            document.body.appendChild(script);
-                                        }
-                                    }}
                                     theme="dark"
                                 />
                             </div>
@@ -750,6 +758,23 @@ function Unlock() {
                     {t('unlock.adsHelpCreators')} ❤️
                 </p>
             </main>
+
+            {/* Pełnoekranowa nakładka popunder - pierwszy klik odpala reklamę */}
+            {showPopunderOverlay && (
+                <div
+                    onClick={handleOverlayClick}
+                    style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        zIndex: 9999,
+                        cursor: 'pointer',
+                        backgroundColor: 'transparent'
+                    }}
+                />
+            )}
         </div>
     );
 }
