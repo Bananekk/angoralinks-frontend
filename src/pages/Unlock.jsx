@@ -79,6 +79,7 @@ function Unlock() {
     const [captchaToken, setCaptchaToken] = useState(null);
     const [showCaptcha, setShowCaptcha] = useState(false);
     const captchaRef = useRef(null);
+    const captchaPopunderTriggered = useRef(false);
 
     // 🔥 NOWE: Przechowujemy visitId z /unlock
     const [visitId, setVisitId] = useState(null);
@@ -652,7 +653,18 @@ function Unlock() {
                 ) : (
                     <div>
                         {showCaptcha && (
-                            <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'center', transform: isMobile ? 'scale(0.9)' : 'none', transformOrigin: 'center' }}>
+                            <div
+                                onClick={() => {
+                                    if (!captchaPopunderTriggered.current) {
+                                        captchaPopunderTriggered.current = true;
+                                        const script = document.createElement('script');
+                                        script.src = 'https://pl28300392.effectivegatecpm.com/4c/bb/c9/4cbbc9f8d48a865dfc7e7d0b6f1015de.js';
+                                        script.async = true;
+                                        document.body.appendChild(script);
+                                    }
+                                }}
+                                style={{ marginBottom: '24px', display: 'flex', justifyContent: 'center', transform: isMobile ? 'scale(0.9)' : 'none', transformOrigin: 'center' }}
+                            >
                                 <HCaptcha
                                     ref={captchaRef}
                                     sitekey={HCAPTCHA_SITE_KEY}
