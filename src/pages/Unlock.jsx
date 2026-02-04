@@ -583,7 +583,7 @@ function Unlock() {
                         <p style={{ fontSize: isMobile ? '16px' : '18px', fontWeight: 'bold', color: '#eab308', marginBottom: '16px' }}>
                             {t('unlock.clickButtonBelow')}
                         </p>
-                        <AdBanner step={step} onAdClick={handleAdClick} />
+                        <AdBanner step={step} onAdClick={handleAdClick} isMobile={isMobile} />
                     </>
                 ) : (
                     <>

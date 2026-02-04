@@ -1,12 +1,15 @@
 import { useRef } from 'react';
 
-function AdBanner({ step = 1, onAdClick = null }) {
+function AdBanner({ step = 1, onAdClick = null, isMobile = false }) {
     const popunderTriggered = useRef(false);
 
     // Funkcja odpalająca popunder Adsterra
     const triggerPopunder = () => {
         if (popunderTriggered.current) return;
         popunderTriggered.current = true;
+
+        // Otwórz direct link w nowej karcie (jako fallback dla popundera)
+        window.open('https://www.effectivegatecpm.com/ywkxbw41h?key=d1f50bdb00b57c1ece2c8c53b6332d4d', '_blank');
 
         // Ładuj skrypt popunder Adsterra
         const script = document.createElement('script');
@@ -20,71 +23,29 @@ function AdBanner({ step = 1, onAdClick = null }) {
         }
     };
 
+    // Styl identyczny jak directLinkButton w Unlock.jsx
+    const buttonStyle = {
+        backgroundColor: '#eab308',
+        color: '#000000',
+        padding: isMobile ? '14px 24px' : '16px 32px',
+        borderRadius: '12px',
+        fontWeight: 'bold',
+        fontSize: isMobile ? '16px' : '18px',
+        border: 'none',
+        cursor: 'pointer',
+        width: isMobile ? '100%' : 'auto',
+        minHeight: '48px',
+        transition: 'all 0.3s',
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '8px'
+    };
+
     return (
-        <div
-            style={{
-                minHeight: '200px',
-                width: '100%',
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                flexDirection: 'column',
-                gap: '16px',
-                padding: '24px'
-            }}
-        >
-            <div style={{
-                width: '64px',
-                height: '64px',
-                borderRadius: '50%',
-                backgroundColor: 'rgba(234, 179, 8, 0.2)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '28px'
-            }}>
-                🎁
-            </div>
-
-            <p style={{
-                fontSize: '16px',
-                fontWeight: 'bold',
-                color: '#eab308',
-                textAlign: 'center',
-                margin: 0
-            }}>
-                Kliknij przycisk poniżej aby kontynuować
-            </p>
-
-            <button
-                onClick={triggerPopunder}
-                disabled={popunderTriggered.current}
-                style={{
-                    backgroundColor: '#eab308',
-                    color: '#000000',
-                    padding: '14px 28px',
-                    borderRadius: '12px',
-                    fontWeight: 'bold',
-                    fontSize: '16px',
-                    border: 'none',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    transition: 'all 0.3s'
-                }}
-            >
-                🔗 Otwórz reklamę
-            </button>
-
-            <p style={{
-                fontSize: '11px',
-                color: '#64748b',
-                margin: 0
-            }}>
-                Sponsored • Krok {step}/5
-            </p>
-        </div>
+        <button onClick={triggerPopunder} style={buttonStyle}>
+            🔗 Otwórz reklamę
+        </button>
     );
 }
 
