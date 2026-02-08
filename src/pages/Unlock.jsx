@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { Link2, Clock, CheckCircle, ExternalLink, Loader2, AlertCircle, Shield, MousePointer, ShieldOff, RefreshCw } from 'lucide-react';
-import HCaptcha from '@hcaptcha/react-hcaptcha';
+import ReCAPTCHA from 'react-google-recaptcha';
 import AdBanner from '../components/AdBanner';
 import { useTranslation } from '../i18n';
 
@@ -84,7 +84,7 @@ function Unlock() {
     // 🔥 NOWE: Przechowujemy visitId z /unlock
     const [visitId, setVisitId] = useState(null);
 
-    const HCAPTCHA_SITE_KEY = 'c6486bc4-4a2e-4c3c-b8e6-720cf3dc324e';
+    const RECAPTCHA_SITE_KEY = '6Lcy02QsAAAAAD3R7ZxXE-1ZljnjptF4qhz3hVCb';
     const DIRECT_LINK = 'https://www.effectivegatecpm.com/ywkxbw41h?key=d1f50bdb00b57c1ece2c8c53b6332d4d';
 
     // Pokaż overlay gdy pojawi się captcha
@@ -242,7 +242,7 @@ function Unlock() {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    hcaptchaToken: captchaToken,
+                    recaptchaToken: captchaToken,
                     country: 'PL',
                     device: /Mobile|Android|iPhone/i.test(navigator.userAgent) ? 'mobile' : 'desktop'
                 })
@@ -671,10 +671,10 @@ function Unlock() {
                     <div>
                         {showCaptcha && (
                             <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'center', transform: isMobile ? 'scale(0.9)' : 'none', transformOrigin: 'center' }}>
-                                <HCaptcha
+                                <ReCAPTCHA
                                     ref={captchaRef}
-                                    sitekey={HCAPTCHA_SITE_KEY}
-                                    onVerify={handleCaptchaVerify}
+                                    sitekey={RECAPTCHA_SITE_KEY}
+                                    onChange={handleCaptchaVerify}
                                     theme="dark"
                                 />
                             </div>

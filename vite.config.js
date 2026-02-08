@@ -4,12 +4,12 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
-  
+
   // 🚀 Optymalizacja build
   build: {
     // Generuj source maps tylko dla produkcji (debugowanie)
     sourcemap: false,
-    
+
     // Minifikacja
     minify: 'terser',
     terserOptions: {
@@ -18,7 +18,7 @@ export default defineConfig({
         drop_debugger: true
       }
     },
-    
+
     // 🔥 Code Splitting - rozbicie na mniejsze chunki
     rollupOptions: {
       output: {
@@ -27,28 +27,27 @@ export default defineConfig({
           'vendor-react': ['react', 'react-dom'],
           'vendor-router': ['react-router-dom'],
           'vendor-utils': ['axios', 'react-hot-toast'],
-          
+
           // Lucide icons - osobny chunk (duża biblioteka)
           'vendor-icons': ['lucide-react'],
-          
-          // hCaptcha - ładowane tylko na Unlock page
-          'vendor-captcha': ['@hcaptcha/react-hcaptcha'],
+
+
         },
-        
+
         // Nazwy chunków z hash dla cache
         chunkFileNames: 'assets/js/[name]-[hash].js',
         entryFileNames: 'assets/js/[name]-[hash].js',
         assetFileNames: 'assets/[ext]/[name]-[hash].[ext]'
       }
     },
-    
+
     // Limit rozmiaru chunka (ostrzeżenie jeśli > 500kb)
     chunkSizeWarningLimit: 500,
-    
+
     // Target nowoczesnych przeglądarek
     target: 'es2020'
   },
-  
+
   // 🚀 Optymalizacja dev server
   server: {
     port: 5173,
@@ -62,7 +61,7 @@ export default defineConfig({
       ]
     }
   },
-  
+
   // 🚀 Optymalizacja zależności
   optimizeDeps: {
     include: [
@@ -73,9 +72,10 @@ export default defineConfig({
       'react-hot-toast'
     ],
     // Exclude heavy deps that are lazy loaded
-    exclude: ['@hcaptcha/react-hcaptcha']
+    // Exclude heavy deps that are lazy loaded
+    exclude: []
   },
-  
+
   // 🚀 Resolve aliases dla czystszych importów
   resolve: {
     alias: {
