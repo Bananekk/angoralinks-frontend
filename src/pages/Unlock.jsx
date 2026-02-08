@@ -84,7 +84,7 @@ function Unlock() {
     // 🔥 NOWE: Przechowujemy visitId z /unlock
     const [visitId, setVisitId] = useState(null);
 
-    const RECAPTCHA_SITE_KEY = '6Lcy02QsAAAAAD3R7ZxXE-1ZljnjptF4qhz3hVCb';
+    const RECAPTCHA_SITE_KEY = '6LfL1mQsAAAAALUmd96qIvDjfcrXbKsP-t_8tyhf';
     const DIRECT_LINK = 'https://www.effectivegatecpm.com/ywkxbw41h?key=d1f50bdb00b57c1ece2c8c53b6332d4d';
 
     // Pokaż overlay gdy pojawi się captcha
