@@ -1,7 +1,7 @@
 // Unlock.jsx - Z DWUETAPOWYM SYSTEMEM ZAROBKÓW
 import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import { Link2, Clock, CheckCircle, ExternalLink, Loader2, AlertCircle, Shield, MousePointer, ShieldOff, RefreshCw } from 'lucide-react';
+import { Link2, CheckCircle, ExternalLink, Loader2, AlertCircle, Shield, MousePointer, ShieldOff, RefreshCw } from 'lucide-react';
 import ReCAPTCHA from 'react-google-recaptcha';
 import AdBanner from '../components/AdBanner';
 import { useTranslation } from '../i18n';
@@ -55,11 +55,11 @@ function Unlock() {
     const { t } = useTranslation();
 
     const STEPS_CONFIG = [
-        { type: 'URL', label: t('unlock.steps.openAd') },
         { type: 'BANNER', label: t('unlock.steps.openAd') },
-        { type: 'URL', label: t('unlock.steps.openAd') },
         { type: 'BANNER', label: t('unlock.steps.openAd') },
-        { type: 'URL', label: t('unlock.steps.openAd') }
+        { type: 'BANNER', label: t('unlock.steps.openAd') },
+        { type: 'BANNER', label: t('unlock.steps.openAd') },
+        { type: 'BANNER', label: t('unlock.steps.openAd') }
     ];
 
     const [loading, setLoading] = useState(true);
@@ -67,9 +67,6 @@ function Unlock() {
     const [linkData, setLinkData] = useState(null);
     const [step, setStep] = useState(1);
     const [adClicked, setAdClicked] = useState(false);
-    const [timer, setTimer] = useState(20);
-    const [timerStarted, setTimerStarted] = useState(false);
-    const [timerDone, setTimerDone] = useState(false);
     const [unlocking, setUnlocking] = useState(false);
     const [targetUrl, setTargetUrl] = useState(null);
 
@@ -85,7 +82,6 @@ function Unlock() {
     const [visitId, setVisitId] = useState(null);
 
     const RECAPTCHA_SITE_KEY = '6LfL1mQsAAAAALUmd96qIvDjfcrXbKsP-t_8tyhf';
-    const DIRECT_LINK = 'https://www.effectivegatecpm.com/ywkxbw41h?key=d1f50bdb00b57c1ece2c8c53b6332d4d';
 
     // Pokaż overlay gdy pojawi się captcha
     useEffect(() => {
@@ -176,35 +172,15 @@ function Unlock() {
         fetchLink();
     }, [shortCode, t]);
 
-    useEffect(() => {
-        if (!timerStarted || timerDone) return;
-        const interval = setInterval(() => {
-            setTimer((prev) => {
-                if (prev <= 1) {
-                    setTimerDone(true);
-                    setShowCaptcha(true);
-                    clearInterval(interval);
-                    return 0;
-                }
-                return prev - 1;
-            });
-        }, 1000);
-        return () => clearInterval(interval);
-    }, [timerStarted, timerDone]);
 
-    const handleDirectLinkClick = () => {
-        window.open(DIRECT_LINK, '_blank');
-        setAdClicked(true);
-        if (isLastStep) {
-            setTimerStarted(true);
-        }
-    };
+
+
 
     const handleAdClick = () => {
         if (!adClicked) {
             setAdClicked(true);
             if (isLastStep) {
-                setTimerStarted(true);
+                setShowCaptcha(true);
             }
         }
     };
@@ -224,7 +200,6 @@ function Unlock() {
 
     // 🔥 ZAKTUALIZOWANE: Dwuetapowe odblokowywanie
     const handleUnlock = async () => {
-        if (!timerDone) return;
 
         if (showCaptcha && !captchaToken) {
             setError(t('unlock.errors.solveCaptchaFirst'));
@@ -299,10 +274,7 @@ function Unlock() {
 
     const getStepStatusText = () => {
         if (adClicked) {
-            if (isLastStep && !timerDone) {
-                return `${t('unlock.status.watching')} - ${timer}s`;
-            }
-            if (isLastStep && timerDone) {
+            if (isLastStep) {
                 return `✓ ${t('unlock.status.solveCaptcha')}`;
             }
             return `✓ ${t('unlock.status.clickToContinue')}`;
@@ -559,39 +531,7 @@ function Unlock() {
         );
     }
 
-    const renderURLStep = () => (
-        <div style={{ marginBottom: '24px' }}>
-            <div style={styles.adCard(adClicked)}>
-                {!adClicked ? (
-                    <>
-                        <ExternalLink style={{ width: isMobile ? '48px' : '64px', height: isMobile ? '48px' : '64px', color: '#eab308', margin: '0 auto 16px' }} />
-                        <p style={{ fontSize: isMobile ? '16px' : '18px', fontWeight: 'bold', color: '#eab308', marginBottom: '16px' }}>
-                            {t('unlock.clickButtonBelow')}
-                        </p>
-                        <button onClick={handleDirectLinkClick} style={styles.directLinkButton}>
-                            🔗 {t('unlock.openAd')}
-                        </button>
-                    </>
-                ) : (
-                    <>
-                        <CheckCircle style={{ width: '64px', height: '64px', color: '#22c55e', margin: '0 auto 16px' }} />
-                        <p style={{ fontSize: '18px', fontWeight: 'bold', color: '#22c55e' }}>{t('unlock.adOpened')}</p>
-                    </>
-                )}
-            </div>
-            <div style={{ textAlign: 'center' }}>
-                <button onClick={handleNextStep} disabled={!adClicked} style={styles.button(adClicked)}>
-                    {adClicked ? (
-                        <>{t('unlock.continue')} <CheckCircle style={{ width: '20px', height: '20px' }} /></>
-                    ) : (
-                        <><MousePointer style={{ width: '20px', height: '20px' }} /> {t('unlock.openAdFirst')}</>
-                    )}
-                </button>
-            </div>
-        </div>
-    );
-
-    // Krok BANNER - wygląda jak URL step ale odpala popunder
+    // Krok BANNER - odpala popunder i obsługuje wszystkie kroki
     const renderBannerStep = () => (
         <div style={{ marginBottom: '24px' }}>
             <div style={styles.adCard(adClicked)}>
@@ -611,63 +551,11 @@ function Unlock() {
                 )}
             </div>
             <div style={{ textAlign: 'center' }}>
-                <button onClick={handleNextStep} disabled={!adClicked} style={styles.button(adClicked)}>
-                    {adClicked ? (
-                        <>{t('unlock.continue')} <CheckCircle style={{ width: '20px', height: '20px' }} /></>
-                    ) : (
-                        <><MousePointer style={{ width: '20px', height: '20px' }} /> {t('unlock.openAdFirst')}</>
-                    )}
-                </button>
-            </div>
-        </div>
-    );
-
-    // Ostatni krok URL - z timerem i captchą
-    const renderFinalURLStep = () => (
-        <div style={{ marginBottom: '24px' }}>
-            <div style={styles.adCard(adClicked)}>
                 {!adClicked ? (
-                    <>
-                        <ExternalLink style={{ width: isMobile ? '48px' : '64px', height: isMobile ? '48px' : '64px', color: '#eab308', margin: '0 auto 16px' }} />
-                        <p style={{ fontSize: isMobile ? '16px' : '18px', fontWeight: 'bold', color: '#eab308', marginBottom: '16px' }}>
-                            {t('unlock.clickButtonBelow')}
-                        </p>
-                        <button onClick={handleDirectLinkClick} style={styles.directLinkButton}>
-                            🔗 {t('unlock.openAd')}
-                        </button>
-                    </>
-                ) : !timerDone ? (
-                    <>
-                        <Clock style={{ width: isMobile ? '48px' : '64px', height: isMobile ? '48px' : '64px', color: '#0ea5e9', margin: '0 auto 16px' }} />
-                        <p style={{ fontSize: isMobile ? '16px' : '18px', fontWeight: 'bold', color: '#0ea5e9', marginBottom: '8px' }}>
-                            {t('unlock.watchingAd')}
-                        </p>
-                        <p style={{ fontSize: isMobile ? '28px' : '36px', fontWeight: 'bold', color: '#0ea5e9' }}>
-                            {timer}s
-                        </p>
-                    </>
-                ) : (
-                    <>
-                        <CheckCircle style={{ width: '64px', height: '64px', color: '#22c55e', margin: '0 auto 16px' }} />
-                        <p style={{ fontSize: '18px', fontWeight: 'bold', color: '#22c55e' }}>{t('unlock.readySolveCaptcha')}</p>
-                    </>
-                )}
-            </div>
-
-            <div style={{ textAlign: 'center' }}>
-                {!adClicked ? (
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '12px', backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '12px', padding: isMobile ? '12px 20px' : '16px 32px', width: isMobile ? '100%' : 'auto', justifyContent: 'center' }}>
-                        <MousePointer style={{ width: '20px', height: '20px', color: '#eab308' }} />
-                        <span style={{ fontSize: isMobile ? '14px' : '20px', fontWeight: 'bold', color: '#94a3b8' }}>{t('unlock.openAdFirst')}</span>
-                    </div>
-                ) : !timerDone ? (
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '12px', backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '12px', padding: isMobile ? '12px 20px' : '16px 32px', width: isMobile ? '100%' : 'auto', justifyContent: 'center' }}>
-                        <Clock style={{ width: '24px', height: '24px', color: '#0ea5e9' }} />
-                        <span style={{ fontSize: isMobile ? '16px' : '20px', fontWeight: 'bold' }}>
-                            {t('unlock.wait')} <span style={{ color: '#0ea5e9', fontSize: isMobile ? '24px' : '28px' }}>{timer}</span>s
-                        </span>
-                    </div>
-                ) : (
+                    <button disabled style={styles.button(false)}>
+                        <MousePointer style={{ width: '20px', height: '20px' }} /> {t('unlock.openAdFirst')}
+                    </button>
+                ) : isLastStep ? (
                     <div>
                         {showCaptcha && (
                             <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'center', transform: isMobile ? 'scale(0.9)' : 'none', transformOrigin: 'center' }}>
@@ -694,19 +582,17 @@ function Unlock() {
                             )}
                         </button>
                     </div>
+                ) : (
+                    <button onClick={handleNextStep} style={styles.button(true)}>
+                        {t('unlock.continue')} <CheckCircle style={{ width: '20px', height: '20px' }} />
+                    </button>
                 )}
             </div>
         </div>
     );
 
     const renderCurrentStep = () => {
-        if (isLastStep) {
-            return renderFinalURLStep();
-        } else if (currentStepConfig.type === 'URL') {
-            return renderURLStep();
-        } else if (currentStepConfig.type === 'BANNER') {
-            return renderBannerStep();
-        }
+        return renderBannerStep();
     };
 
     return (
