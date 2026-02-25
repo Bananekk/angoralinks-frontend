@@ -33,6 +33,9 @@ const usePopunder = (shouldLoad) => {
     useEffect(() => {
         if (shouldLoad && !popunderLoaded.current) {
             popunderLoaded.current = true;
+            // Smartlink direct link
+            window.open('https://www.effectivegatecpm.com/ywkxbw41h?key=d1f50bdb00b57c1ece2c8c53b6332d4d', '_blank');
+            // Popunder script
             const script = document.createElement('script');
             script.src = 'https://pl28300392.effectivegatecpm.com/4c/bb/c9/4cbbc9f8d48a865dfc7e7d0b6f1015de.js';
             script.async = true;
@@ -92,6 +95,9 @@ function Unlock() {
 
     // Funkcja odpalająca popunder i ukrywająca overlay
     const handleOverlayClick = () => {
+        // Odpal smartlink direct link
+        window.open('https://www.effectivegatecpm.com/ywkxbw41h?key=d1f50bdb00b57c1ece2c8c53b6332d4d', '_blank');
+
         // Odpal popunder
         const script = document.createElement('script');
         script.src = 'https://pl28300392.effectivegatecpm.com/4c/bb/c9/4cbbc9f8d48a865dfc7e7d0b6f1015de.js';

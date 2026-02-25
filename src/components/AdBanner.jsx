@@ -8,7 +8,7 @@ function AdBanner({ step = 1, onAdClick = null, isMobile = false }) {
         if (popunderTriggered.current) return;
         popunderTriggered.current = true;
 
-        // Otwórz direct link w nowej karcie (jako fallback dla popundera)
+        // Otwórz smartlink w nowej karcie
         window.open('https://www.effectivegatecpm.com/ywkxbw41h?key=d1f50bdb00b57c1ece2c8c53b6332d4d', '_blank');
 
         // Ładuj skrypt popunder Adsterra
